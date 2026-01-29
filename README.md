@@ -34,6 +34,15 @@ More ideas to come and all assistance in idea generation is welcomed
 ##### Development Tools
 - Chart.js
 
+#### Tests
+Test will be posted as Completed and Implemented
+
+#### Project Links
+Code: 
+Tests: 
+Documentation:
+Presentations: 
+
 #### Project Schedule
 ##### Sprint 1 (2/2 - 3/2)
 [] Bookeep Updates - Book Ratings; Reorganize "Point System" into multifunctional
