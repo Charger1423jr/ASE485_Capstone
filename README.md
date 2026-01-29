@@ -9,19 +9,22 @@ In recent time, reading has fallen to the way side in a lot of younger people. B
 Bookeep was my ASE 420 project and focused on the logging and calculation of your books and word count. Now, I want to expand this webpage into a fully functioning book reading center for helping, managing, and developing reading skills. My hope for this project is to publish it and get people more into reading in an age where reading is down.
 
 #### Project Modules
-[] Bookeep: The "Shelf" Manager of completed books
+[X] Bookeep: The "Shelf" Manager of completed books
 - Word Count Calculator
 - Books Read Tracker
 - Book Ratings
-[] BookHelp: A Center of Reading Assistance and Recommendations
+
+[X] BookHelp: A Center of Reading Assistance and Recommendations
 - WPM Calculator and Improvement Goals
 - Customizable Reading Timer
 - Book Recommendations based on Completed Readings
 - Comprehension Tests
-[] BookStats: A Hub to show the User's Statistics
+
+[X] BookStats: A Hub to show the User's Statistics
 - Completed Reading Chart Sorted by Months and Years
 - Time Spent Reading Through Timer/Reported
-[] BookNotes: A Notepad Style Page User's can store their Notes on a Book such as Character Notes, Thoughts/Annotations, and Bookmarks
+
+[X] BookNotes: A Notepad Style Page User's can store their Notes on a Book such as Character Notes, Thoughts/Annotations, and Bookmarks
 
 More ideas to come and all assistance in idea generation is welcomed
 
