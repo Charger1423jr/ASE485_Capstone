@@ -9,10 +9,10 @@ In recent time, reading has fallen to the way side in a lot of younger people. B
 Bookeep was my ASE 420 project and focused on the logging and calculation of your books and word count. Now, I want to expand this webpage into a fully functioning book reading center for helping, managing, and developing reading skills. My hope for this project is to publish it and get people more into reading in an age where reading is down.
 
 #### Project Modules
-[X] Bookeep: The "Shelf" Manager of completed books
-- Word Count Calculator
-- Books Read Tracker
-- Book Ratings
+- Bookeep: The "Shelf" Manager of completed books
+  - Word Count Calculator
+  - Books Read Tracker
+  - Book Ratings
 
 [X] BookHelp: A Center of Reading Assistance and Recommendations
 - WPM Calculator and Improvement Goals
