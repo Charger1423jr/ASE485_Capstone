@@ -3,19 +3,26 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Bookeep</title>
+    <title>BookCenter</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="BookCenterStylesheet.css">
+    <link rel="stylesheet" href="authStylesheet.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <header>
         <nav class="navbar" style="background-color: #224499;">
-            <div class="container-fluid">
+            <div class="container-fluid d-flex justify-content-between align-items-center">
                 <a class="navbar-brand d-flex align-items-end" href="./BookCenter.html" style="color: white; text-decoration: none;">
                     <img src="./images/bookeeplogo.png" alt="Bookeep Logo" width="42" height="52" class="d-inline-block">
                     <h1 class="mb-0 ms-2">ookCenter</h1>
                 </a>
+                <div id="navbarButtons">
+                </div>
             </div>
         </nav>
     </header>
@@ -24,47 +31,58 @@
         <div class="nav-box-title">Navigation</div>
         <a href="./Bookeep.html" class="nav-box-item">Bookeep</a>
         <a href="./BookHelp.html" class="nav-box-item">BookHelp</a>
-        <a href="./BookStats.html" class="nav-box-item ">BookStats</a>
+        <a href="./BookStats.html" class="nav-box-item">BookStats</a>
         <a href="./BookNotes.html" class="nav-box-item">BookNotes</a>
     </div>
+    
     <div class="main-content">
-    <article class="container mt-4">
-        <h1 style="text-align: center; margin-bottom: 0; padding-top: 5px"><b>Welcome to BookCenter</b></h1>
-        <div style="text-align: center; font-size: 0.9rem; color: gray; margin-bottom: 10px;">
-            Your central hub for all things Bookeep.
-        </div>
-        <hr style="margin-top: 0;">
-        <h3 style="margin-top: 20px; color: #224499"><b>What is Book Center?</b></h3>
-        <p>BookCenter is your center for all things Books. We invite you to delve into each sub-section of out site, which range from tracking your books, to seeing analytics 
-        on your reading habits, to getting help with your reading goals, and even taking notes on your favorite books. Explore the various tools and features we offer to 
-        enhance your reading experience!
-        </p>
-        <hr>
-        <h3 style="margin-top: 20px; color: #224499"><b>Getting Started</b></h3>
-        <h4>1. <a href="./Bookeep.html">Bookeep</a></h4>
-        <p>Bookeep was the central idea for our webpage. A place where you can track your reading completion, sorted and organized, and note of your word counts.
-            Also, if you want to challenge yourself and your friends, you can set up a reading challenge for Words Read or Books Read! Bookeep will do all the calculations for you.
-        </p>
-        <h4>2. <a href="./BookHelp.html">BookHelp</a></h4>
-        <p>BookHelp is a section of our website that provides helpful tools and resources to enhance your reading experience. It includes features like a word-per-minute calculator, 
-            customizable timer for reading time, comprehension tests, goal settings for your reading speed or books read, and personalized book recommendations based on your completed reading reported on Bookeep.
-        </p>
-        <h4>3. <a href="./BookStats.html">BookStats</a></h4>
-        <p>BookStats is a section of our website that provides analytics and statistics on your reading habits. It shows you how many books you've read, how many words you've read, goals 
-            completed, and other useful metrics to help you track your progress all presented in neat visualizations in the form of charts.
-        </p>
-        <h4>4. <a href="./BookNotes.html">BookNotes</a></h4>
-        <p>BookNotes is a section of our website where you can take notes on your favorite books. It allows you to keep track of your thoughts, key quotes, and important 
-            details about each book you read in an organized manner.
-        </p>
-    </article>
+        <article class="container mt-4">
+            <h1 style="text-align: center; margin-bottom: 0; padding-top: 5px"><b>Welcome to BookCenter</b></h1>
+            <div style="text-align: center; font-size: 0.9rem; color: gray; margin-bottom: 10px;">
+                Your central hub for all things Bookeep.
+            </div>
+            <hr style="margin-top: 0;">
+            
+            <h3 style="margin-top: 20px; color: #224499"><b>What is Book Center?</b></h3>
+            <p>BookCenter is your center for all things Books. We invite you to delve into each sub-section of our site, which range from tracking your books, to seeing analytics 
+            on your reading habits, to getting help with your reading goals, and even taking notes on your favorite books. Explore the various tools and features we offer to 
+            enhance your reading experience!
+            </p>
+            
+            <hr>
+            
+            <h3 style="margin-top: 20px; color: #224499"><b>Getting Started</b></h3>
+            <h4>1. <a href="./Bookeep.html">Bookeep</a></h4>
+            <p>Bookeep was the central idea for our webpage. A place where you can track your reading completion, sorted and organized, and note of your word counts.
+                Also, if you want to challenge yourself and your friends, you can set up a reading challenge for Words Read or Books Read! Bookeep will do all the calculations for you.
+            </p>
+            
+            <h4>2. <a href="./BookHelp.html">BookHelp</a></h4>
+            <p>BookHelp is a section of our website that provides helpful tools and resources to enhance your reading experience. It includes features like a word-per-minute calculator, 
+                customizable timer for reading time, comprehension tests, goal settings for your reading speed or books read, and personalized book recommendations based on your completed reading reported on Bookeep.
+            </p>
+            
+            <h4>3. <a href="./BookStats.html">BookStats</a></h4>
+            <p>BookStats is a section of our website that provides analytics and statistics on your reading habits. It shows you how many books you've read, how many words you've read, goals 
+                completed, and other useful metrics to help you track your progress all presented in neat visualizations in the form of charts.
+            </p>
+            
+            <h4>4. <a href="./BookNotes.html">BookNotes</a></h4>
+            <p>BookNotes is a section of our website where you can take notes on your favorite books. It allows you to keep track of your thoughts, key quotes, and important 
+                details about each book you read in an organized manner.
+            </p>
+        </article>
+    </div>
 
     <footer class="bg-dark text-white text-center py-3 mt-5">
         <div class="container">
             <p class="mb-0">&copy; 2025 Do Not Steal My Work Inc. All rights reserved.</p>
         </div>
     </footer>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="./firebaseAuth.js"></script>
+    <script src="./authUI.js"></script>
     <script src="./BookCenterBackend.js"></script>
 </body>
 </html>

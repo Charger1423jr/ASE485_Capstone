@@ -9,20 +9,45 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('yearLabel').textContent = currentYear;
     document.getElementById('yearLabel2').textContent = currentYear;
     
-    loadBooks();
-    renderBooks();
-    updateStats();
+    // Wait for auth to initialize before loading books
+    setTimeout(() => {
+        loadBooks();
+        renderBooks();
+        updateStats();
+    }, 500);
 });
 
 function loadBooks() {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-        books = JSON.parse(stored);
+    // Try to load from Firebase first
+    const currentUserData = window.authUI ? window.authUI.getCurrentUserData() : null;
+    
+    if (currentUserData && currentUserData.bookeep && currentUserData.bookeep.books) {
+        books = currentUserData.bookeep.books;
+    } else {
+        // Fallback to localStorage for backwards compatibility
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+            books = JSON.parse(stored);
+        }
     }
 }
 
-function saveBooks() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
+async function saveBooks() {
+    // Save to Firebase if user is logged in
+    const currentUser = window.authUI ? window.authUI.getCurrentUser() : null;
+    
+    if (currentUser) {
+        await window.firebaseAuth.updateBookeepData(currentUser.uid, books);
+        
+        // Also update the current user data in memory
+        const userData = window.authUI.getCurrentUserData();
+        if (userData) {
+            userData.bookeep.books = books;
+        }
+    } else {
+        // Fallback to localStorage
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
+    }
 }
 
 function formatNumber(num) {
@@ -52,7 +77,7 @@ function updateDateDisplay() {
     }
 }
 
-function addBook() {
+async function addBook() {
     const title = document.getElementById('bookTitle').value.trim();
     const wordCountStr = document.getElementById('wordCount').value.trim();
     const dateInput = document.getElementById('dateInput').value;
@@ -74,7 +99,7 @@ function addBook() {
     };
 
     books.push(book);
-    saveBooks();
+    await saveBooks();
 
     document.getElementById('bookTitle').value = '';
     document.getElementById('wordCount').value = '';
@@ -198,7 +223,7 @@ function startEdit(bookId) {
     }
 }
 
-function saveEdit(bookId) {
+async function saveEdit(bookId) {
     const title = document.getElementById(`editTitle-${bookId}`).value.trim();
     const wordCountStr = document.getElementById(`editWordCount-${bookId}`).value.trim();
     const dateInput = document.getElementById(`editDateInput-${bookId}`).value;
@@ -220,7 +245,7 @@ function saveEdit(bookId) {
             wordCount,
             dateRead
         };
-        saveBooks();
+        await saveBooks();
         editingBookId = null;
         renderBooks();
         updateStats();
@@ -252,10 +277,10 @@ function closeDeleteModal() {
     deleteBookId = null;
 }
 
-function confirmDelete() {
+async function confirmDelete() {
     if (deleteBookId) {
         books = books.filter(b => b.id !== deleteBookId);
-        saveBooks();
+        await saveBooks();
         renderBooks();
         updateStats();
         closeDeleteModal();
@@ -368,7 +393,7 @@ function exportData() {
     showSnackbar('Data exported successfully!');
 }
 
-function importData(event) {
+async function importData(event) {
     const file = event.target.files[0];
     if (!file) {
         return;
@@ -381,7 +406,7 @@ function importData(event) {
     }
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         try {
             const importedData = JSON.parse(e.target.result);
             
@@ -408,7 +433,7 @@ function importData(event) {
 
             if (confirmReplace) {
                 books = importedData;
-                saveBooks();
+                await saveBooks();
                 renderBooks();
                 updateStats();
                 showSnackbar(`Successfully imported ${importedData.length} book(s)!`);
