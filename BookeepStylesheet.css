@@ -1,0 +1,222 @@
+body {
+    background-color: #d3e9ff;
+    color: black;
+    font-family: Garamond, serif;
+}
+
+.nav-box {
+    position: fixed;
+    top: 100px;
+    left: 20px;
+    width: 180px;
+    background-color: white;
+    border: 2px solid #224499;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+}
+
+.nav-box-title {
+    background-color: #224499;
+    color: white;
+    padding: 12px 15px;
+    font-weight: bold;
+    font-size: 16px;
+    border-radius: 6px 6px 0 0;
+    text-align: center;
+}
+
+.nav-box-item {
+    display: block;
+    padding: 12px 15px;
+    color: #224499;
+    text-decoration: none;
+    border-bottom: 1px solid #e0e0e0;
+    transition: background-color 0.2s;
+}
+
+.nav-box-item:last-child {
+    border-bottom: none;
+    border-radius: 0 0 6px 6px;
+}
+
+.nav-box-item:hover:not(.disabled) {
+    background-color: #e3f2fd;
+}
+
+.nav-box-item.disabled {
+    color: #999;
+    pointer-events: none;
+    background-color: #f5f5f5;
+}
+
+@media (max-width: 992px) {
+    .nav-box {
+        display: none;
+    }
+}
+
+.stat-box {
+    background-color: white;
+    border: 2px solid #224499;
+}
+
+.stat-title {
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #224499;
+}
+
+.book-item {
+    background-color: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.book-info {
+    flex: 1;
+}
+
+.book-title {
+    font-weight: bold;
+    font-size: 18px;
+    margin-bottom: 5px;
+}
+
+.book-details {
+    color: #666;
+    font-size: 14px;
+}
+
+.book-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.edit-form {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    width: 100%;
+}
+
+.edit-form input {
+    margin-bottom: 10px;
+}
+
+.wrapped-modal .modal-dialog {
+    max-width: 400px;
+}
+
+.wrapped-content {
+    background: linear-gradient(135deg, #1E3A8A, #7C3AED, #DB2777, #F59E0B);
+    padding: 30px;
+    border-radius: 20px;
+    color: white;
+    text-align: center;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.wrapped-icon {
+    font-size: 40px;
+    margin-bottom: 16px;
+}
+
+.wrapped-year {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 38px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.wrapped-title {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 28px;
+    font-weight: bold;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 4px;
+    margin-bottom: 40px;
+}
+
+.wrapped-stat {
+    margin-bottom: 30px;
+}
+
+.wrapped-stat-label {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.wrapped-stat-value {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 32px;
+    font-weight: bold;
+}
+
+.wrapped-section-title {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    margin: 40px 0 16px 0;
+}
+
+.top-book {
+    background-color: rgba(255,255,255,0.1);
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    text-align: left;
+}
+
+.top-book-title {
+    font-weight: bold;
+    font-size: 16px;
+    margin-bottom: 4px;
+}
+
+.top-book-words {
+    color: rgba(255,255,255,0.7);
+    font-size: 14px;
+}
+
+.wrapped-footer {
+    margin-top: 40px;
+    font-size: 18px;
+    color: rgba(255,255,255,0.7);
+}
+
+.toast {
+    background-color: #333;
+    color: white;
+}
+
+@media (max-width: 768px) {
+    .book-item {
+        flex-direction: column;
+    }
+    
+    .book-actions {
+        margin-top: 10px;
+        justify-content: flex-end;
+    }
+}
+
+.main-content {
+    margin-left: 200px;
+    padding: 15px;
+}
