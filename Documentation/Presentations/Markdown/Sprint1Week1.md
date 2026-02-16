@@ -1,6 +1,6 @@
 ---
 marp: true
-title: Project Plan Presentation
+title: Sprint 1 Week 1
 author: Preston Jackson
 theme: default
 paginate: true
