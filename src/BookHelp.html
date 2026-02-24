@@ -22,7 +22,6 @@
                     <h1 class="mb-0 ms-2">ookCenter</h1>
                 </a>
                 <div id="navbarButtons">
-                    <!-- User menu will be added here by JavaScript -->
                 </div>
             </div>
         </nav>
@@ -44,7 +43,6 @@
             </div>
             <hr style="margin-top: 0;">
             
-            <!-- Feature Navigation Buttons -->
             <div class="feature-nav">
                 <button class="feature-btn" onclick="showFeature('timer')">Reading Timer</button>
                 <button class="feature-btn" onclick="showFeature('wpm')">WPM Calculator</button>
@@ -53,7 +51,6 @@
                 <button class="feature-btn" onclick="showFeature('goals')">Goal Center</button>
             </div>
 
-            <!-- Content Sections -->
             <div id="defaultContent" class="content-section active">
                 <div class="text-center py-5">
                     <h2 class="mb-4">Welcome to BookHelp</h2>
@@ -102,7 +99,10 @@
                             </select>
                         </div>
                         <div id="app"></div>
-                        <button id="timerControlButton" onclick="handleTimerControl()" class="btn btn-success">Start Timer</button>
+                        <div class="d-flex gap-2">
+                            <button id="timerControlButton" onclick="handleTimerControl()" class="btn btn-success">Start Timer</button>
+                            <button id="timerResetButton" onclick="resetTimer()" class="btn btn-danger" style="display:none;">Reset Timer</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -111,7 +111,36 @@
                 <div class="tool-section card p-4">
                     <h2>Word Per Minute Calculator</h2>
                     <p>Calculate your reading speed in words per minute (WPM) to better plan your reading sessions.</p>
-                    <button class="btn btn-primary" onclick="location.href='WordPerMinuteCalculator.html'">Go to WPM Calculator</button>
+
+                    <div class="mb-3">
+                        <label for="wpmDifficulty" class="form-label">Difficulty:</label>
+                        <select id="wpmDifficulty" class="form-select" style="max-width:260px;">
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="expert">Expert</option>
+                        </select>
+                    </div>
+
+                    <div id="wpmPromptContainer" class="mb-3">
+                        <label class="form-label">Prompt:</label>
+                        <div id="wpmPrompt" class="card p-3" style="max-height:420px; overflow:auto; background:#f8f9fa;"></div>
+                    </div>
+
+                    <div class="d-flex gap-2 mb-3">
+                        <button id="wpmBeginButton" class="btn btn-success" onclick="beginWPMTest()">Begin</button>
+                        <button id="wpmFinishButton" class="btn btn-primary" onclick="finishWPMTest()" style="display:none;">Finished</button>
+                        <button id="wpmNewPrompt" class="btn btn-secondary" onclick="loadWpmPrompt()">New Prompt</button>
+                    </div>
+
+                    <div id="wpmResults" style="display:none;">
+                        <h5>Results</h5>
+                        <div id="wpmScore"></div>
+                        <div class="mt-2">
+                            <button id="wpmSaveButton" class="btn btn-outline-primary" onclick="saveWpmResult()">Save Result</button>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 text-muted">A stopwatch runs from when the prompt appears until you click "Finished".</div>
                 </div>
             </div>
 
@@ -119,8 +148,32 @@
                 <div class="tool-section card p-4">
                     <h2>Comprehension Tests</h2>
                     <p>Test your understanding and retention of what you've read with interactive comprehension quizzes.</p>
-                    <div class="alert alert-info mt-3">
-                        <strong>Coming Soon!</strong> This feature is currently in development.
+
+                    <div class="mb-3">
+                        <label for="compDifficulty" class="form-label">Difficulty:</label>
+                        <select id="compDifficulty" class="form-select" style="max-width:260px;">
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="expert">Expert</option>
+                        </select>
+                    </div>
+
+                    <div id="compPromptContainer" class="mb-3">
+                        <label class="form-label">Passage:</label>
+                        <div id="compPrompt" class="card p-3" style="max-height:420px; overflow:auto; background:#f8f9fa;"></div>
+                    </div>
+
+                    <div class="d-flex gap-2 mb-3">
+                        <button id="compBeginButton" class="btn btn-success" onclick="beginCompTest()">Begin</button>
+                        <button id="compSubmitButton" class="btn btn-primary" onclick="submitCompAnswers()" style="display:none;">Submit Answers</button>
+                        <button id="compNewPrompt" class="btn btn-secondary" onclick="loadCompPrompt()">New Prompt</button>
+                    </div>
+
+                    <div id="compQuestions" style="display:none;"></div>
+
+                    <div id="compResults" style="display:none;">
+                        <h5>Results</h5>
+                        <div id="compScore"></div>
                     </div>
                 </div>
             </div>
@@ -142,9 +195,30 @@
                 <div class="tool-section card p-4">
                     <h2>Goal Center</h2>
                     <p>Set and track your reading goals. Whether it's pages per day, books per month, or total reading time, stay motivated!</p>
-                    <div class="alert alert-info mt-3">
-                        <strong>Coming Soon!</strong> This feature is currently in development.
+
+                    <hr>
+                    <h5>WPM Goal</h5>
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <input id="wpmGoalInput" type="number" min="1" class="form-control" style="max-width:160px;" placeholder="WPM goal">
+                        <button id="wpmGoalSave" class="btn btn-primary" onclick="saveWpmGoal()">Save</button>
+                        <button id="wpmGoalClear" class="btn btn-outline-secondary" onclick="clearWpmGoal()">Clear</button>
                     </div>
+                    <div id="wpmGoalStatus" class="mb-3 text-muted"></div>
+
+                    <hr>
+                    <h5>Comprehension Goal (Streak)</h5>
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <select id="compGoalInput" class="form-select" style="max-width:160px;">
+                            <option value="25">25%</option>
+                            <option value="50">50%</option>
+                            <option value="75">75%</option>
+                            <option value="100">100%</option>
+                        </select>
+                        <button id="compGoalSave" class="btn btn-primary" onclick="saveCompGoal()">Save</button>
+                        <button id="compGoalClear" class="btn btn-outline-secondary" onclick="clearCompGoal()">Clear</button>
+                    </div>
+                    <div id="compGoalStatus" class="mb-3 text-muted"></div>
+                    <div id="compStreakStatus" class="mb-3 text-muted"></div>
                 </div>
             </div>
         </article>

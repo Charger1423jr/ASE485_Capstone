@@ -216,6 +216,40 @@ body {
     }
 }
 
+.book-author {
+    color: #555;
+    font-size: 14px;
+    font-style: italic;
+    margin-bottom: 3px;
+}
+
+.search-result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    background: white;
+    gap: 10px;
+}
+
+.search-result-info {
+    flex: 1;
+}
+
+.search-result-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: #224499;
+}
+
+.search-result-meta {
+    font-size: 13px;
+    color: #666;
+}
+
 .main-content {
     margin-left: 200px;
     padding: 15px;

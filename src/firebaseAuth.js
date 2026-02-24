@@ -1,10 +1,11 @@
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDi-tc0sGkewYTy16trPMf7WeJ0v8RkG5o",
+  authDomain: "bookcenter-55361.firebaseapp.com",
+  projectId: "bookcenter-55361",
+  storageBucket: "bookcenter-55361.firebasestorage.app",
+  messagingSenderId: "805336152763",
+  appId: "1:805336152763:web:dc51f8a616d69a8756479e",
+  measurementId: "G-NGYV8M5M1Z"
 };
 
 let app, auth, db;
