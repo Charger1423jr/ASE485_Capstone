@@ -1,11 +1,11 @@
 const firebaseConfig = {
-  apiKey: "AIzaSyDi-tc0sGkewYTy16trPMf7WeJ0v8RkG5o",
-  authDomain: "bookcenter-55361.firebaseapp.com",
-  projectId: "bookcenter-55361",
-  storageBucket: "bookcenter-55361.firebasestorage.app",
-  messagingSenderId: "805336152763",
-  appId: "1:805336152763:web:dc51f8a616d69a8756479e",
-  measurementId: "G-NGYV8M5M1Z"
+  apiKey: "APIKEY",
+  authDomain: "AUTHDOMAIN",
+  projectId: "ID",
+  storageBucket: "BUCKET",
+  messagingSenderId: "SENDERID",
+  appId: "APPID",
+  measurementId: "ID"
 };
 
 let app, auth, db;
@@ -313,4 +313,5 @@ window.firebaseAuth = {
     migrateLocalStorageToFirebase,
     onAuthStateChanged,
     getCurrentUser
+
 };
