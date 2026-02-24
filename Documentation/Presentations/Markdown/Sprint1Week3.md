@@ -15,12 +15,13 @@ paginate: true
 
 Bookeep - Ratings, Multifunctional Goal System
 BookHelp - Custom Reading Timer
+General - OpenLibrary API Implemented, Buffering for Pages to load before presentation
 
 ---
 
 ## Burndown Rate
 
-2/2 Completed Requirements
+5/5 Completed Requirements
 Total LoC: 3,142
 
 ---
