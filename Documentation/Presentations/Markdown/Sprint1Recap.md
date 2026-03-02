@@ -21,11 +21,25 @@ paginate: true
 
 ---
 
-## Sprint 1 Completed Items
-- Week 1: Implemented User Login/Logout Functions, Customizable Timer Template, Setup Firebase Database
-- Week 2: Setup Authorization, Login Compatibility with Firebase Database, UI for Login Feature
-- Week 3: Bookeep Ratings and Multifunctional Goal System, BookHelp Custom Reading Timer Completion, OpenLibrary API Implementation
-- Week 4: BookHelp WPM Calculation Test, Comprehension Test, and Goal Setting, Chart.js Implementation (Will Use for Sprint 2)
+### Sprint 1 Completed Items
+#### Week 1 
+- Implemented User Login/Logout Functions
+- Customizable Timer Template
+- Setup Firebase Database
+#### Week 2: 
+- Setup Authorization
+- Login Compatibility with Firebase Database
+- UI for Login Feature
+
+---
+### Sprint 1 Completed Items (cont.)
+#### Week 3
+- Bookeep Ratings and Multifunctional Goal System
+-  BookHelp Custom Reading Timer Completion
+-  OpenLibrary API Implementation
+#### Week 4
+- BookHelp WPM Calculation Test, Comprehension Test, and Goal Setting
+- Chart.js Implementation (Will Use for Sprint 2)
 
 ---
 
@@ -46,9 +60,12 @@ https://youtu.be/ELmXTTeZNhc
 ---
 
 ## Issues Faced
-- First time using Firebase proved time consuming (Week 1)
-- UI Issues appeared, slowing down Progress (Week 2)
-- Code/File reorganization will be needed for simplicity, as some files are unnecessarily long (Week 4)
+### Week 1
+- First time using Firebase proved time consuming
+### Week 2
+- UI Issues appeared, slowing down Progress
+### Week 4
+- Code/File reorganization will be needed for simplicity, as some files are unnecessarily long
 
 ---
 
@@ -85,5 +102,5 @@ Alsobhi, Aisha, and Ngiste Amare. “Ontology-Based Relational Product Recommend
 ---
 
 ## Learning with AI - Sprint 2
-### Book Recommendation - Now with API Implemented, can Begin
-### Goal Suggesting - Will Require BookStats Completion
+- Book Recommendation - Now with API Implemented, can Begin
+- Goal Suggesting - Will Require BookStats Completion
