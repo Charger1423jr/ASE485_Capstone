@@ -316,6 +316,7 @@ function showFeature(featureName) {
             break;
         case 'recommendations':
             contentId = 'recommendationsContent';
+            setTimeout(() => initRecommendations(), 50);
             break;
         case 'goals':
             contentId = 'goalsContent';
@@ -756,3 +757,371 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('compGoalInput').value = savedCompGoal;
     }
 });
+
+// ─── BOOK RECOMMENDATION  ──────────────────────────────────────────────
+
+
+let recCandidatePool = [];      
+let recDisplayed = [];          
+let recLoading = false;
+
+async function initRecommendations() {
+    const container = document.getElementById('recContainer');
+    if (!container) return;
+
+    if (recCandidatePool.length > 0) {
+        renderRecommendations();
+        return;
+    }
+
+    showRecLoading('Gathering your reading history…');
+
+    const userBooks = await getUserBooks();
+
+    if (!userBooks || userBooks.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-warning mt-3">
+                <h5>No Books Found</h5>
+                <p class="mb-0">Add some books to <a href="./Bookeep.html">Bookeep</a> first, 
+                and we'll generate personalized recommendations based on what you've read!</p>
+            </div>`;
+        return;
+    }
+
+    showRecLoading(`Analyzing ${userBooks.length} book${userBooks.length !== 1 ? 's' : ''} you've read…`);
+
+    const sampleBooks = userBooks.slice(0, 8);
+    const userProfile = await buildUserProfile(sampleBooks, userBooks);
+
+    window._recUserProfile = userProfile;
+    userProfile_topSubjects = userProfile.topSubjects;
+
+    showRecLoading('Searching for similar books…');
+
+    const candidates = await fetchCandidates(userProfile, userBooks);
+
+    showRecLoading('Scoring recommendations…');
+
+    recCandidatePool = scoreCandidates(candidates, userProfile, userBooks);
+
+    recDisplayed = recCandidatePool.slice(0, 10).map((_, i) => i);
+
+    renderRecommendations();
+}
+
+async function getUserBooks() {
+    try {
+        const currentUser = window.authUI ? window.authUI.getCurrentUser() : null;
+        if (currentUser) {
+            const data = await window.firebaseAuth.getUserData(currentUser.uid);
+            if (data && data.bookeep && data.bookeep.books) {
+                return data.bookeep.books;
+            }
+        }
+        const stored = localStorage.getItem('bookeep_books');
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+        console.error('Error fetching user books:', e);
+        return [];
+    }
+}
+
+async function buildUserProfile(sampleBooks, allBooks) {
+    const authorCounts = {};
+    const subjectCounts = {};
+    let totalRating = 0;
+    let ratedCount = 0;
+
+    allBooks.forEach(b => {
+        if (b.author) {
+            const a = b.author.trim().toLowerCase();
+            authorCounts[a] = (authorCounts[a] || 0) + 1;
+        }
+        if (b.rating && b.rating > 0) {
+            totalRating += b.rating;
+            ratedCount++;
+        }
+    });
+
+    const subjectFetches = sampleBooks.map(book => fetchBookSubjects(book));
+    const subjectResults = await Promise.allSettled(subjectFetches);
+
+    subjectResults.forEach(result => {
+        if (result.status === 'fulfilled' && result.value) {
+            result.value.forEach(subj => {
+                const s = subj.toLowerCase().trim();
+                subjectCounts[s] = (subjectCounts[s] || 0) + 1;
+            });
+        }
+    });
+
+    const topSubjects = Object.entries(subjectCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(e => e[0]);
+
+    const topAuthors = Object.entries(authorCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(e => e[0]);
+
+    return {
+        topSubjects,
+        topAuthors,
+        subjectCounts,
+        authorCounts,
+        avgRating: ratedCount > 0 ? totalRating / ratedCount : 3
+    };
+}
+
+async function fetchBookSubjects(book) {
+    try {
+        const query = encodeURIComponent(`${book.title} ${book.author || ''}`.trim());
+        const resp = await fetch(
+            `https://openlibrary.org/search.json?q=${query}&limit=1&fields=key,subject`
+        );
+        const data = await resp.json();
+        if (data.docs && data.docs.length > 0 && data.docs[0].subject) {
+            return data.docs[0].subject.slice(0, 10);
+        }
+    } catch (e) { } // skip
+    return [];
+}
+
+async function fetchCandidates(userProfile, userBooks) {
+    const readTitles = new Set(
+        userBooks.map(b => b.title.toLowerCase().trim())
+    );
+    const readAuthors = new Set(
+        userBooks.map(b => (b.author || '').toLowerCase().trim()).filter(Boolean)
+    );
+
+    const seen = new Set();
+    const candidates = [];
+
+    const subjectsToQuery = userProfile.topSubjects.slice(0, 3);
+
+    const authorsToQuery = userProfile.topAuthors.slice(0, 2);
+
+    const queries = [
+        ...subjectsToQuery.map(s => ({
+            url: `https://openlibrary.org/search.json?subject=${encodeURIComponent(s)}&limit=12&fields=key,title,author_name,subject,first_publish_year,number_of_pages_median`,
+            type: 'subject',
+            tag: s
+        })),
+        ...authorsToQuery.map(a => ({
+            url: `https://openlibrary.org/search.json?author=${encodeURIComponent(a)}&limit=8&fields=key,title,author_name,subject,first_publish_year,number_of_pages_median`,
+            type: 'author',
+            tag: a
+        }))
+    ];
+
+    const fetches = queries.map(q =>
+        fetch(q.url)
+            .then(r => r.json())
+            .then(data => ({ data, tag: q.tag, type: q.type }))
+            .catch(() => null)
+    );
+
+    const results = await Promise.allSettled(fetches);
+
+    results.forEach(result => {
+        if (result.status !== 'fulfilled' || !result.value) return;
+        const { data, tag } = result.value;
+        if (!data.docs) return;
+
+        data.docs.forEach(doc => {
+            if (!doc.title || !doc.key) return;
+
+            const titleNorm = doc.title.toLowerCase().trim();
+            const authorNorm = doc.author_name ? doc.author_name[0].toLowerCase().trim() : '';
+
+            if (readTitles.has(titleNorm)) return;
+            if (seen.has(doc.key)) return;
+            seen.add(doc.key);
+
+            candidates.push({
+                key: doc.key,
+                title: doc.title,
+                author: doc.author_name ? doc.author_name[0] : 'Unknown Author',
+                subjects: (doc.subject || []).slice(0, 15).map(s => s.toLowerCase()),
+                year: doc.first_publish_year || null,
+                pages: doc.number_of_pages_median || null,
+                foundVia: tag
+            });
+        });
+    });
+
+    return candidates;
+}
+
+function scoreCandidates(candidates, userProfile, userBooks) {
+    const { subjectCounts, authorCounts } = userProfile;
+
+    const scored = candidates.map(book => {
+        let score = 0;
+
+        book.subjects.forEach(s => {
+            if (subjectCounts[s]) {
+                score += subjectCounts[s] * 2;
+            } else if (userProfile.topSubjects.some(ts => s.includes(ts) || ts.includes(s))) {
+                score += 1;  
+            }
+        });
+
+        const authorNorm = book.author.toLowerCase().trim();
+        if (authorCounts[authorNorm]) {
+            score += authorCounts[authorNorm] * 3;
+        }
+
+        if (book.year && book.year < 1900) score -= 1;
+
+        return { ...book, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+
+    return scored;
+}
+
+function renderRecommendations() {
+    const container = document.getElementById('recContainer');
+    if (!container) return;
+
+    const toShow = recDisplayed.map(i => recCandidatePool[i]).filter(Boolean);
+
+    if (toShow.length === 0) {
+        container.innerHTML = `<div class="alert alert-info mt-3">No recommendations found. Try adding more books to Bookeep!</div>`;
+        return;
+    }
+
+    const cards = toShow.map((book, displayIdx) => {
+        const poolIdx = recDisplayed[displayIdx];
+        const olKey = book.key.replace('/works/', '');
+        const olUrl = `https://openlibrary.org${book.key}`;
+        const grUrl = `https://www.goodreads.com/search?q=${encodeURIComponent(book.title + ' ' + book.author)}`;
+
+        const yearStr = book.year ? ` · ${book.year}` : '';
+        const pagesStr = book.pages ? ` · ~${book.pages} pages` : '';
+        const _topSubs = userProfile_topSubjects || [];
+        const topSubjects = book.subjects
+            .filter(s => _topSubs.length === 0 || _topSubs.some(ts => s.includes(ts) || ts.includes(s)))
+            .slice(0, 3);
+
+        const matchedSubjectsHtml = topSubjects.length > 0
+            ? topSubjects.map(s =>
+                `<span class="rec-subject-badge">${capitalize(s)}</span>`
+            ).join('')
+            : '';
+
+        return `
+            <div class="rec-card" id="rec-card-${displayIdx}" data-pool-idx="${poolIdx}">
+                <div class="rec-card-body">
+                    <div class="rec-card-info">
+                        <div class="rec-book-title">${escapeHtml(book.title)}</div>
+                        <div class="rec-book-author">by ${escapeHtml(book.author)}${yearStr}${pagesStr}</div>
+                        ${matchedSubjectsHtml ? `<div class="rec-subjects mt-1">${matchedSubjectsHtml}</div>` : ''}
+                    </div>
+                    <div class="rec-card-actions">
+                        <a href="${olUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary rec-link-btn">
+                            OpenLibrary
+                        </a>
+                        <a href="${grUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary rec-link-btn">
+                            Goodreads
+                        </a>
+                        <button class="btn btn-sm btn-outline-danger rec-hide-btn" 
+                                onclick="hideRecommendation(${displayIdx})" 
+                                title="Hide this book and get a new suggestion">
+                            ✕ Hide
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="rec-header mb-3">
+            <p class="text-muted rec-subtitle">Based on your reading history — 
+            showing ${toShow.length} of ${recCandidatePool.length} scored recommendations.</p>
+            <button class="btn btn-outline-primary btn-sm" onclick="refreshAllRecommendations()">
+                🔄 Refresh All
+            </button>
+        </div>
+        <div id="recCardList">${cards}</div>`;
+}
+
+let userProfile_topSubjects = [];
+
+function hideRecommendation(displayIdx) {
+    const card = document.getElementById(`rec-card-${displayIdx}`);
+    if (card) {
+        card.style.transition = 'opacity 0.3s, transform 0.3s';
+        card.style.opacity = '0';
+        card.style.transform = 'translateX(20px)';
+    }
+
+    setTimeout(() => {
+        const usedIndices = new Set(recDisplayed);
+        let nextIdx = -1;
+        for (let i = 0; i < recCandidatePool.length; i++) {
+            if (!usedIndices.has(i)) {
+                nextIdx = i;
+                break;
+            }
+        }
+
+        if (nextIdx === -1) {
+            recDisplayed.splice(displayIdx, 1);
+        } else {
+            recDisplayed[displayIdx] = nextIdx;
+        }
+
+        renderRecommendations();
+    }, 300);
+}
+
+function refreshAllRecommendations() {
+    const usedMax = Math.max(...recDisplayed) + 1;
+    const nextStart = usedMax;
+    const available = [];
+    for (let i = nextStart; i < recCandidatePool.length; i++) available.push(i);
+
+    if (available.length === 0) {
+        recDisplayed = recCandidatePool.slice(0, 10).map((_, i) => i);
+    } else {
+        recDisplayed = available.slice(0, 10);
+        if (recDisplayed.length < 10) {
+            const needed = 10 - recDisplayed.length;
+            for (let i = 0; i < needed && i < nextStart; i++) {
+                recDisplayed.push(i);
+            }
+        }
+    }
+    renderRecommendations();
+}
+
+async function refreshRecommendations() {
+    recCandidatePool = [];
+    recDisplayed = [];
+    await initRecommendations();
+}
+
+function showRecLoading(message) {
+    const container = document.getElementById('recContainer');
+    if (!container) return;
+    container.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary mb-3" role="status"></div>
+            <div class="text-muted">${message}</div>
+        </div>`;
+}
+
+function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+
+function capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
