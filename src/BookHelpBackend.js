@@ -671,6 +671,451 @@ async function submitCompAnswers() {
     }
 }
 
+
+// ─── GOAL CENTER AI ───────────────────────────────────────────────────────────
+
+// ─── GOAL CENTER AI (Reactive Machine Engine) ────────────────────────────────
+// No external AI — all calculations are deterministic, rule-based.
+// Pulls from: WPM history, comprehension history, Bookeep books (word count +
+// submission dates) via Firebase or localStorage, mirroring how BookStats reads data.
+
+let goalAiMode = 'recommended'; // 'quick' | 'recommended' | 'optimistic'
+
+function setGoalAiMode(mode) {
+    goalAiMode = mode;
+    document.querySelectorAll('.goal-mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+}
+
+// ── Data gathering ─────────────────────────────────────────────────────────────
+
+async function getGoalAllData() {
+    const userData = window.authUI?.getCurrentUserData();
+    const bh = userData?.bookhelp || {};
+    const books = userData?.bookeep?.books || JSON.parse(localStorage.getItem('bookeep_books') || '[]');
+
+    const wpmHistory  = bh.wpmHistory         || JSON.parse(localStorage.getItem('wpmHistory')          || '[]');
+    const compHistory = bh.comprehensionHistory|| JSON.parse(localStorage.getItem('comprehensionHistory')|| '[]');
+
+    const currentWpmGoal  = localStorage.getItem('wpmGoal')  || null;
+    const currentCompGoal = localStorage.getItem('compGoal') || null;
+    const compStreak      = parseInt(localStorage.getItem('compStreak') || '0');
+
+    return { wpmHistory, compHistory, books, currentWpmGoal, currentCompGoal, compStreak };
+}
+
+// ── Reading pace analysis (from Bookeep books) ─────────────────────────────────
+// Returns: avgDaysBetweenBooks, avgWordsPerBook, recentPaceScore (0–1, higher = faster reader)
+
+function analyseReadingPace(books) {
+    if (!books || books.length === 0) return { avgDaysBetweenBooks: null, avgWordsPerBook: null, recentPaceScore: 0.5 };
+
+    // Parse and sort by date
+    const dated = books
+        .map(b => {
+            const p = (b.dateRead || '').split('-');
+            if (p.length !== 3) return null;
+            return { date: new Date(+p[2], +p[0]-1, +p[1]), wordCount: b.wordCount || 0 };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.date - b.date);
+
+    const avgWords = dated.length
+        ? Math.round(dated.reduce((s, b) => s + b.wordCount, 0) / dated.length)
+        : null;
+
+    // Gaps between consecutive submissions (days)
+    const gaps = [];
+    for (let i = 1; i < dated.length; i++) {
+        const diff = (dated[i].date - dated[i-1].date) / (1000 * 60 * 60 * 24);
+        if (diff > 0 && diff <= 365) gaps.push(diff); // ignore same-day dupes or huge gaps
+    }
+
+    const avgGap = gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : null;
+
+    // Recent pace: compare last 3 gaps vs earlier gaps
+    let recentPaceScore = 0.5;
+    if (gaps.length >= 4) {
+        const recent = gaps.slice(-3).reduce((a, b) => a + b, 0) / 3;
+        const older  = gaps.slice(0, -3).reduce((a, b) => a + b, 0) / (gaps.length - 3);
+        // Lower gap = reading faster. Score > 0.5 means improving pace.
+        recentPaceScore = Math.min(1, Math.max(0, 0.5 + (older - recent) / (older + 1) * 0.5));
+    }
+
+    // Words-per-day pace (higher = more intensive reader, likely higher WPM)
+    let wordsPerDayScore = 0.5;
+    if (avgWords && avgGap) {
+        const wpd = avgWords / avgGap;
+        // Typical recreational reader: ~2000–4000 words/day on a book
+        // Score: 0 at ≤500 wpd, 1 at ≥8000 wpd
+        wordsPerDayScore = Math.min(1, Math.max(0, (wpd - 500) / 7500));
+    }
+
+    return {
+        avgDaysBetweenBooks: avgGap ? Math.round(avgGap) : null,
+        avgWordsPerBook: avgWords,
+        recentPaceScore,
+        wordsPerDayScore,
+        bookCount: dated.length
+    };
+}
+
+// ── WPM goal engine ────────────────────────────────────────────────────────────
+
+function computeWpmGoal(wpmHistory, paceData, mode, currentGoal) {
+    const vals = wpmHistory.map(r => r.wpm).filter(v => typeof v === 'number' && v > 0);
+
+    // ── Baseline: no test data ──
+    if (vals.length === 0) {
+        // Use reading pace as a proxy for likely reading speed
+        const base = paceData.wordsPerDayScore > 0.6 ? 280
+                   : paceData.wordsPerDayScore > 0.3 ? 220
+                   : 180;
+        const bumps = { quick: 0, recommended: 20, optimistic: 60 };
+        const goal  = base + bumps[mode];
+        return {
+            goalValue: goal,
+            dataSource: 'pace',
+            rationale: buildWpmRationale(null, null, null, paceData, mode, goal, currentGoal),
+            tip: wpmTip(goal, mode)
+        };
+    }
+
+    const avg  = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+    const best = Math.max(...vals);
+    const last = vals[vals.length - 1];
+    const trend = computeTrend(vals);  // positive = improving
+
+    // ── Weighted baseline: blend of avg, best, and last ──
+    // Heavier weight on recent performance
+    const baseline = Math.round(avg * 0.35 + best * 0.3 + last * 0.35);
+
+    // ── Pace modifier: faster readers plateau sooner ──
+    // If reading pace is high, they're already practised — be more conservative
+    const paceModifier = paceData.wordsPerDayScore > 0.65 ? 0.85
+                       : paceData.wordsPerDayScore > 0.4  ? 1.0
+                       : 1.1; // slower reader has more room to grow
+
+    // ── Trend modifier: reward improving trend with a slightly higher goal ──
+    const trendBonus = trend > 5 ? 10 : trend > 0 ? 5 : 0;
+
+    // ── Mode multipliers ──
+    // quick: baseline + small step; recommended: meaningful jump; optimistic: stretch
+    const modeTargets = {
+        quick:       Math.round((baseline + 10 + trendBonus) * paceModifier),
+        recommended: Math.round((baseline + 25 + trendBonus) * paceModifier),
+        optimistic:  Math.round((baseline + 55 + trendBonus) * paceModifier)
+    };
+
+    // Clamp: never suggest lower than current best; never suggest > 900 WPM
+    const raw = Math.max(best + 5, modeTargets[mode]);
+    const goal = Math.min(900, Math.round(raw / 5) * 5); // round to nearest 5
+
+    return {
+        goalValue: goal,
+        dataSource: 'history',
+        rationale: buildWpmRationale(avg, best, last, paceData, mode, goal, currentGoal),
+        tip: wpmTip(goal, mode)
+    };
+}
+
+function buildWpmRationale(avg, best, last, paceData, mode, goal, currentGoal) {
+    const modeLabel = { quick: 'short-term (1–2 week)', recommended: 'mid-term (1–2 month)', optimistic: 'long-term (3–6 month)' }[mode];
+
+    if (avg === null) {
+        // No WPM tests yet — based on reading pace
+        const paceDesc = paceData.bookCount > 0
+            ? `Based on your Bookeep history (${paceData.bookCount} book${paceData.bookCount !== 1 ? 's' : ''}` +
+              (paceData.avgDaysBetweenBooks ? `, averaging one every ~${paceData.avgDaysBetweenBooks} days` : '') + `)`
+            : 'Since you haven\'t taken a WPM test yet';
+        return `${paceDesc}, a starting target of ${goal} WPM is a sensible ${modeLabel} goal. ` +
+               `Take a WPM test first to get a personalised baseline — your goal will sharpen from there.`;
+    }
+
+    let rationale = `Your average WPM is ${avg} with a personal best of ${best}. `;
+
+    if (paceData.avgDaysBetweenBooks && paceData.avgWordsPerBook) {
+        rationale += `You typically finish a ~${Math.round(paceData.avgWordsPerBook / 1000) * 1000}-word book every ${paceData.avgDaysBetweenBooks} days, `;
+        rationale += paceData.recentPaceScore > 0.55 ? 'and your reading pace has been picking up recently. ' : 'maintaining a steady reading pace. ';
+    }
+
+    const gap = goal - (last || avg);
+    rationale += `A ${modeLabel} target of ${goal} WPM represents a ${gap > 0 ? '+' + gap : gap} WPM step from your most recent score — `;
+    rationale += mode === 'quick' ? 'an achievable near-term nudge.' : mode === 'recommended' ? 'a meaningful but realistic improvement.' : 'an ambitious stretch that rewards consistent practice.';
+
+    return rationale;
+}
+
+function wpmTip(goal, mode) {
+    const tips = {
+        quick: [
+            'Try one timed WPM test every 2–3 days and track whether your score rises across the week.',
+            'Read a page out loud, then re-read it silently — you will naturally accelerate on the second pass.',
+            'Set a countdown timer for 5 minutes and count the words you covered; this builds pacing awareness.'
+        ],
+        recommended: [
+            'Practice skimming topic sentences first, then re-read the paragraph fully — this trains your eyes to move faster.',
+            'Read slightly harder material than usual; the mental effort forces faster pattern recognition over time.',
+            'After each WPM test, note what distracted you — fatigue, subvocalisation, or re-reading — and target that habit next session.'
+        ],
+        optimistic: [
+            'Commit to 20–30 minutes of focused reading daily; consistency compounds WPM gains faster than occasional long sessions.',
+            'Work on eliminating subvocalisation (silently "saying" each word) — use a pointer or finger to guide your eyes ahead of your inner voice.',
+            'Mix easy, fast reads with challenging texts; easy reads build fluency, hard texts build vocabulary and scanning skill simultaneously.'
+        ]
+    };
+    const pool = tips[mode];
+    return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// ── Comprehension goal engine ──────────────────────────────────────────────────
+
+function computeCompGoal(compHistory, paceData, mode, currentGoal, compStreak) {
+    const pcts = compHistory.map(r => {
+        // Support both percentage (0–100) and raw fraction or score objects
+        if (typeof r.percentage === 'number') return r.percentage;
+        if (typeof r.score === 'number' && typeof r.total === 'number' && r.total > 0)
+            return Math.round((r.score / r.total) * 100);
+        return null;
+    }).filter(v => v !== null && v >= 0 && v <= 100);
+
+    const valid = [25, 50, 75, 100];
+
+    // ── No history ──
+    if (pcts.length === 0) {
+        const base = mode === 'quick' ? 50 : mode === 'recommended' ? 75 : 75;
+        const goal = valid.includes(base) ? base : 75;
+        return {
+            goalValue: goal,
+            dataSource: 'pace',
+            rationale: buildCompRationale(null, null, null, paceData, mode, goal, currentGoal, compStreak),
+            tip: compTip(goal, mode)
+        };
+    }
+
+    const avg  = pcts.reduce((a, b) => a + b, 0) / pcts.length;
+    const best = Math.max(...pcts);
+    const last = pcts[pcts.length - 1];
+    const trend = computeTrend(pcts);
+
+    // ── Core logic: snap to the appropriate tier ──
+    // Base: weighted blend of avg + best + trend
+    const weighted = avg * 0.5 + best * 0.3 + last * 0.2;
+
+    let tierIndex; // 0=25, 1=50, 2=75, 3=100
+
+    if (mode === 'quick') {
+        // Maintain or achieve the next tier above current average
+        tierIndex = weighted < 35 ? 1       // avg <35 → target 50
+                  : weighted < 60 ? 2       // avg <60 → target 75
+                  : weighted < 80 ? 2       // avg <80 → maintain 75
+                  : 3;                      // avg ≥80 → target 100
+
+        // If streak is strong, keep them at where they already are
+        if (compStreak >= 3 && tierIndex > 0) tierIndex = Math.min(3, tierIndex);
+
+    } else if (mode === 'recommended') {
+        tierIndex = weighted < 40 ? 1
+                  : weighted < 65 ? 2
+                  : weighted < 82 ? 3
+                  : 3;
+        if (trend > 5) tierIndex = Math.min(3, tierIndex + 0); // trend already baked in
+
+    } else { // optimistic
+        // Stretch — push one tier above what's realistic for quick
+        tierIndex = weighted < 50 ? 2
+                  : weighted < 70 ? 3
+                  : 3;
+    }
+
+    // Bonus: if the user is already consistently hitting a tier, push up
+    const consistentAt = pcts.filter(p => p >= 75).length / pcts.length;
+    if (consistentAt > 0.7 && mode !== 'quick') tierIndex = Math.min(3, tierIndex + 1);
+
+    const goal = valid[Math.min(3, Math.max(0, tierIndex))];
+
+    return {
+        goalValue: goal,
+        dataSource: 'history',
+        rationale: buildCompRationale(avg, best, last, paceData, mode, goal, currentGoal, compStreak),
+        tip: compTip(goal, mode)
+    };
+}
+
+function buildCompRationale(avg, best, last, paceData, mode, goal, currentGoal, compStreak) {
+    const modeLabel = { quick: 'short-term (1–2 week)', recommended: 'mid-term (1–2 month)', optimistic: 'long-term (3–6 month)' }[mode];
+
+    if (avg === null) {
+        return `You haven't taken a comprehension test yet — a ${goal}% target is a solid ${modeLabel} starting point. ` +
+               `Take your first test to see how you score, then your goal will be tuned to your actual performance.`;
+    }
+
+    let r = `Your average comprehension score is ${Math.round(avg)}%, with a best of ${best}%. `;
+
+    if (compStreak > 0) {
+        r += `You're on a ${compStreak}-test streak — keep that going. `;
+    }
+
+    if (paceData.bookCount > 0 && paceData.avgWordsPerBook) {
+        const wk = Math.round(paceData.avgWordsPerBook / 1000);
+        r += `Reading ~${wk}k-word books `;
+        r += paceData.avgDaysBetweenBooks ? `every ~${paceData.avgDaysBetweenBooks} days ` : '';
+        r += `means your comprehension load is real — not just skimming. `;
+    }
+
+    const gap = goal - Math.round(avg);
+    r += `A ${modeLabel} target of ${goal}% `;
+    r += gap > 0 ? `pushes you ${gap} points above your average — ` : `maintains your current strong level — `;
+    r += mode === 'quick' ? 'within reach with focused effort this week.'
+       : mode === 'recommended' ? 'a motivating but realistic challenge.'
+       : 'an ambitious stretch worth pursuing consistently.';
+
+    return r;
+}
+
+function compTip(goal, mode) {
+    const tips = {
+        25:  'Focus on understanding the main idea of each paragraph before moving on — comprehension starts with slowing down.',
+        50:  'After each page, pause and mentally summarise what happened or what the key argument was before continuing.',
+        75:  'Before taking the test, re-read the last paragraph of the passage — it often contains the conclusion that ties details together.',
+        100: 'Treat every comprehension test like an open-book exam: note names, dates, and claims as you read so you can recall them precisely.'
+    };
+
+    const modeTips = {
+        quick: 'For a quick boost: read the questions first, then the passage — knowing what to look for dramatically improves short-term scores.',
+        recommended: 'Build a habit of brief mental recaps: every few paragraphs, ask yourself "what just happened and why does it matter?"',
+        optimistic: 'For long-term gains, vary your reading difficulty — challenging texts force deeper processing and train sustained comprehension over time.'
+    };
+
+    // Blend: goal-specific tip if goal < 100, else mode tip
+    return goal < 100 ? tips[goal] : modeTips[mode];
+}
+
+// ── Utility: simple linear trend (WPM or %) ───────────────────────────────────
+
+function computeTrend(vals) {
+    if (vals.length < 3) return 0;
+    const recent = vals.slice(-Math.min(5, vals.length));
+    const n = recent.length;
+    const xMean = (n - 1) / 2;
+    const yMean = recent.reduce((a, b) => a + b, 0) / n;
+    let num = 0, den = 0;
+    recent.forEach((y, i) => { num += (i - xMean) * (y - yMean); den += (i - xMean) ** 2; });
+    return den === 0 ? 0 : num / den; // slope per test
+}
+
+// ── UI: loading / error / render ──────────────────────────────────────────────
+
+function setGoalPanelLoading(panelId) {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    panel.innerHTML = `
+        <div class="goal-ai-loading">
+            <div class="goal-ai-spinner"></div>
+            <span>Calculating your ${goalAiMode} suggestion…</span>
+        </div>`;
+}
+
+function setGoalPanelError(panelId, msg) {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    panel.innerHTML = `
+        <div class="goal-ai-placeholder">
+            <span style="color:#dc3545;">⚠️ ${msg}</span>
+        </div>`;
+}
+
+function renderGoalSuggestion(panelId, type, mode, data) {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+
+    const modeLabels = { quick: '⚡ Quick', recommended: '🎯 Recommended', optimistic: '🚀 Optimistic' };
+    const modeColors = { quick: '#fd7e14', recommended: '#224499', optimistic: '#6f42c1' };
+    const valueLabel = type === 'wpm' ? `${data.goalValue} WPM` : `${data.goalValue}%`;
+    const applyFn   = type === 'wpm' ? `applyAiWpmGoal(${data.goalValue})` : `applyAiCompGoal(${data.goalValue})`;
+
+    panel.innerHTML = `
+        <div class="goal-suggestion-card">
+            <div class="goal-suggestion-header">
+                <span style="font-weight:700;font-size:.9rem;color:#222;">Goal Suggestion</span>
+                <span class="goal-suggestion-mode-badge" style="background:${modeColors[mode]}">${modeLabels[mode]}</span>
+            </div>
+            <div class="goal-suggestion-value">${valueLabel}</div>
+            <div class="goal-suggestion-rationale">${escapeGoalHtml(data.rationale)}</div>
+            <div class="goal-suggestion-tip">💡 ${escapeGoalHtml(data.tip)}</div>
+            <button class="btn btn-sm btn-primary goal-apply-btn"
+                    id="${type === 'wpm' ? 'applyWpmBtn' : 'applyCompBtn'}"
+                    onclick="${applyFn}">
+                ✓ Apply This Goal
+            </button>
+        </div>`;
+}
+
+// ── Main entry point (replaces the old async fetch version) ───────────────────
+
+async function generateGoalSuggestion(type) {
+    const panelId = type === 'wpm' ? 'wpmAiPanel' : 'compAiPanel';
+    const btnId   = type === 'wpm' ? 'wpmSuggestBtn' : 'compSuggestBtn';
+
+    const btn = document.getElementById(btnId);
+    if (btn) btn.disabled = true;
+
+    setGoalPanelLoading(panelId);
+
+    // Small async gap so the loading state paints before the (synchronous) calculation
+    await new Promise(r => setTimeout(r, 120));
+
+    try {
+        const { wpmHistory, compHistory, books, currentWpmGoal, currentCompGoal, compStreak } = await getGoalAllData();
+        const paceData = analyseReadingPace(books);
+
+        let result;
+        if (type === 'wpm') {
+            result = computeWpmGoal(wpmHistory, paceData, goalAiMode, currentWpmGoal);
+        } else {
+            result = computeCompGoal(compHistory, paceData, goalAiMode, currentCompGoal, compStreak);
+        }
+
+        renderGoalSuggestion(panelId, type, goalAiMode, result);
+    } catch (err) {
+        console.error('Goal engine error:', err);
+        setGoalPanelError(panelId, 'Could not calculate suggestion. Please try again.');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+// ── Apply helpers (unchanged from original) ───────────────────────────────────
+
+function applyAiWpmGoal(value) {
+    const input = document.getElementById('wpmGoalInput');
+    if (input) {
+        input.value = value;
+        saveWpmGoal();
+        const btn = document.getElementById('applyWpmBtn');
+        if (btn) { btn.textContent = '✓ Applied!'; btn.disabled = true; }
+    }
+}
+
+function applyAiCompGoal(value) {
+    const select = document.getElementById('compGoalInput');
+    if (select) {
+        const options = [25, 50, 75, 100];
+        const snapped = options.reduce((prev, cur) => Math.abs(cur - value) < Math.abs(prev - value) ? cur : prev);
+        select.value = snapped;
+        saveCompGoal();
+        const btn = document.getElementById('applyCompBtn');
+        if (btn) { btn.textContent = '✓ Applied!'; btn.disabled = true; }
+    }
+}
+
+function escapeGoalHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str || '';
+    return d.innerHTML;
+}
+
 // ─── GOAL CENTER ─────────────────────────────────────────────────────────────
 
 function saveWpmGoal() {
@@ -758,12 +1203,422 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ─── BOOK RECOMMENDATION  ──────────────────────────────────────────────
+// ─── BOOK RECOMMENDATIONS ────────────────────────────────────────────────────
 
-
-let recCandidatePool = [];      
-let recDisplayed = [];          
+let recCandidatePool = [];
+let recCurveballs = [];
+let recNextIdx = 0;
+let recHiddenPool = new Set();
 let recLoading = false;
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+    }
+    function capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+    function isLikelyEnglish(str) {
+    if (!str) return true;
+    const nonAscii = (str.match(/[^\x00-\x7F]/g) || []).length;
+    return nonAscii / str.length < 0.25;
+    }
+    function showRecLoading(message) {
+    const c = document.getElementById('recContainer');
+    if (!c) return;
+    c.innerHTML = `<div class="rec-loading">
+        <span class="rec-loading-dot"></span>
+        <span class="rec-loading-dot"></span>
+        <span class="rec-loading-dot"></span>
+        <div style="margin-top:12px">${message}</div>
+    </div>`;
+    }
+
+    // ── data access ───────────────────────────────────────────────────────────────
+
+    async function getUserBooks() {
+    try {
+        const currentUser = window.authUI?.getCurrentUser();
+            if (currentUser) {
+            const data = await window.firebaseAuth.getUserData(currentUser.uid);
+            if (data?.bookeep?.books) return data.bookeep.books;
+        }
+        const stored = localStorage.getItem('bookeep_books');
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+        console.error('Error fetching user books:', e);
+        return [];
+    }
+    }
+
+    // ── profile building ──────────────────────────────────────────────────────────
+
+    async function buildUserProfile(sampleBooks, allBooks) {
+    const authorCounts = {};
+    const subjectCounts = {};
+
+    allBooks.forEach((b, idx) => {
+        const recencyWeight = 1;
+        if (b.author) {
+        const a = b.author.trim().toLowerCase();
+        authorCounts[a] = (authorCounts[a] || 0) + recencyWeight;
+        }
+    });
+
+    const subjectResults = await Promise.allSettled(
+        sampleBooks.map(book => fetchBookSubjects(book))
+    );
+
+    subjectResults.forEach(result => {
+        if (result.status === 'fulfilled' && result.value) {
+        result.value.forEach(subj => {
+            const s = subj.toLowerCase().trim();
+            subjectCounts[s] = (subjectCounts[s] || 0) + 1;
+        });
+        }
+    });
+
+    const topSubjects = Object.entries(subjectCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(e => e[0]);
+
+    const topAuthors = Object.entries(authorCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(e => e[0]);
+
+    return { topSubjects, topAuthors, subjectCounts, authorCounts };
+    }
+
+    async function fetchBookSubjects(book) {
+    try {
+        const clean = str => (str || '')
+            .replace(/[:'"""''\/\\]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const cleanTitle = clean(book.title);
+        const cleanAuthor = clean(book.author);
+
+        const titleIncludesAuthor = cleanAuthor &&
+            cleanTitle.toLowerCase().includes(cleanAuthor.toLowerCase().split(' ')[0]);
+
+        let queryStr = titleIncludesAuthor
+            ? cleanTitle
+            : `${cleanTitle} ${cleanAuthor}`.trim();
+
+        queryStr = queryStr.split(' ').slice(0, 6).join(' ');
+
+        const resp = await fetch(
+            `https://openlibrary.org/search.json?q=${encodeURIComponent(queryStr)}&limit=1&fields=key,subject`
+        );
+        if (!resp.ok) return [];
+        const data = await resp.json();
+        if (data.docs?.[0]?.subject) return data.docs[0].subject.slice(0, 10);
+    } catch (_) {}
+    return [];
+}
+
+
+    // ── candidate fetching ────────────────────────────────────────────────────────
+
+    async function fetchCandidates(userProfile, userBooks) {
+    const readTitles = new Set(userBooks.map(b => b.title.toLowerCase().trim()));
+    const seen = new Set();
+    const candidates = [];
+
+    const queries = [
+        ...userProfile.topSubjects.slice(0, 4).map(s => ({
+            url: `https://openlibrary.org/search.json?subject=${encodeURIComponent(s)}&limit=15&fields=key,title,author_name,subject,first_publish_year,number_of_pages_median,language`,
+            tag: s, type: 'subject'
+        })),
+        ...userProfile.topAuthors.slice(0, 2).map(a => ({
+            url: `https://openlibrary.org/search.json?author=${encodeURIComponent(a)}&limit=10&fields=key,title,author_name,subject,first_publish_year,number_of_pages_median,language`,
+            tag: a, type: 'author'
+        })),
+        ...userProfile.topSubjects.slice(4, 6).map(s => ({
+            url: `https://openlibrary.org/search.json?subject=${encodeURIComponent(s)}&limit=8&fields=key,title,author_name,subject,first_publish_year,number_of_pages_median,language`,
+            tag: s, type: 'curveball'
+        })),
+    ];
+
+    const results = await Promise.allSettled(
+        queries.map(q =>
+            fetch(q.url)
+                .then(r => {
+                    if (!r.ok) return { docs: [] };
+                    return r.json();
+                })
+                .then(data => ({ data, tag: q.tag, type: q.type }))
+                .catch(() => ({ data: { docs: [] }, tag: q.tag, type: q.type }))
+        )
+    );
+
+    results.forEach(result => {
+        if (result.status !== 'fulfilled' || !result.value) return;
+        const { data, tag, type } = result.value;
+        if (!data.docs) return;
+
+        data.docs.forEach(doc => {
+            if (!doc.title || !doc.key) return;
+            if (!isLikelyEnglish(doc.title)) return;
+            if (!isLikelyEnglish(doc.author_name?.[0])) return;
+            if (doc.language && doc.language.length > 0 && !doc.language.includes('eng')) return;
+
+            const titleNorm = doc.title.toLowerCase().trim();
+            if (readTitles.has(titleNorm)) return;
+            if (seen.has(doc.key)) return;
+            seen.add(doc.key);
+
+            candidates.push({
+                key: doc.key,
+                title: doc.title,
+                author: doc.author_name?.[0] ?? 'Unknown Author',
+                subjects: (doc.subject || []).slice(0, 15).map(s => s.toLowerCase()),
+                year: doc.first_publish_year || null,
+                pages: doc.number_of_pages_median || null,
+                foundVia: tag,
+                isCurveball: type === 'curveball',
+                isAuthorPick: type === 'author'
+            });
+        });
+    });
+
+    return candidates;
+}
+
+    // ── scoring ────────────────────────────────────────────────────────────────────
+
+    function scoreCandidates(candidates, userProfile) {
+    const { subjectCounts, authorCounts, topSubjects } = userProfile;
+
+    const scored = candidates
+    .filter(book => !book.isCurveball)
+    .map(book => {
+        let score = 0;
+            book.subjects.forEach(s => {
+        if (subjectCounts[s]) score += subjectCounts[s];
+        else if (topSubjects.some(ts => s.includes(ts) || ts.includes(s))) score += 0.5;
+    });
+    const authorNorm = book.author.toLowerCase().trim();
+    if (authorCounts[authorNorm]) score += authorCounts[authorNorm];
+    if (book.year && book.year < 1900) score -= 0.5;
+    return { ...book, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    return diversify(scored);
+}
+
+function diversify(scored) {
+    const authorCount = {};
+    const subjectsSeen = {};
+    const result = [];
+    const overflow = [];
+
+    for (const book of scored) {
+    const a = book.author.toLowerCase().trim();
+    authorCount[a] = (authorCount[a] || 0) + 1;
+
+    if (authorCount[a] > 2) {
+        overflow.push(book);
+        continue;
+    }
+
+    const newSubjectBonus = book.subjects.filter(s => (subjectsSeen[s] || 0) < 3).length;
+    book._diversity = newSubjectBonus;
+
+    book.subjects.forEach(s => {
+        subjectsSeen[s] = (subjectsSeen[s] || 0) + 1;
+    });
+
+    result.push(book);
+    }
+
+    const authorCountOverflow = { ...authorCount };
+    for (const book of overflow) {
+    const a = book.author.toLowerCase().trim();
+    authorCountOverflow[a] = (authorCountOverflow[a] || 0) + 1;
+    if (authorCountOverflow[a] <= 3) result.push(book);
+    }
+
+    return result;
+}
+
+    function pickCurveballs(candidates, userProfile, count = 3) {
+    const { subjectCounts, topSubjects } = userProfile;
+
+    const curvePool = candidates
+        .filter(book => book.isCurveball)
+        .map(book => {
+        let overlap = 0;
+        book.subjects.forEach(s => {
+            if (subjectCounts[s] || topSubjects.some(ts => s.includes(ts) || ts.includes(s))) overlap++;
+        });
+        return { ...book, overlap };
+        })
+        .sort((a, b) => a.overlap - b.overlap);
+
+    return curvePool.slice(0, count);
+    }
+
+    // ── rendering ─────────────────────────────────────────────────────────────────
+
+    let _userProfile = null;
+
+    function renderRecommendations() {
+    const container = document.getElementById('recContainer');
+    if (!container) return;
+
+    const topProfile = _userProfile?.topSubjects || [];
+
+    const authorPool = recCandidatePool.filter(b => b.isAuthorPick);
+    const genericPool = recCandidatePool.filter(b => !b.isAuthorPick);
+
+    const displaySlots = [];
+
+    const hiddenCurve = new Set([...recHiddenPool].filter(k => typeof k === 'string' && k.startsWith('cb_')));
+    const hiddenAuthor = new Set([...recHiddenPool].filter(k => typeof k === 'string' && k.startsWith('au_')));
+    const hiddenGeneric = new Set([...recHiddenPool].filter(k => typeof k === 'number'));
+
+    const visibleCurves = recCurveballs
+        .map((book, i) => ({ book, origIdx: i }))
+        .filter(({ origIdx }) => !hiddenCurve.has('cb_' + origIdx));
+
+    const visibleAuthors = authorPool
+        .map((book, i) => ({ book, origIdx: i }))
+        .filter(({ origIdx }) => !hiddenAuthor.has('au_' + origIdx));
+
+    // genericPool indices must stay stable — use the index within the full genericPool array
+    const visibleGeneric = genericPool
+        .map((book, i) => ({ book, origIdx: i }))
+        .filter(({ origIdx }) => !hiddenGeneric.has(origIdx));
+
+    visibleCurves.slice(0, 3).forEach(({ book, origIdx }) => {
+    displaySlots.push({ book, poolKey: 'cb_' + origIdx, isCurveball: true, isAuthorPick: false });
+});
+visibleAuthors.slice(0, 3).forEach(({ book, origIdx }) => {
+    displaySlots.push({ book, poolKey: 'au_' + origIdx, isCurveball: false, isAuthorPick: true });
+});
+visibleGeneric.slice(0, 4).forEach(({ book, origIdx }) => {
+    displaySlots.push({ book, poolKey: origIdx, isCurveball: false, isAuthorPick: false });
+});
+
+    if (displaySlots.length === 0) {
+        container.innerHTML = `<div class="rec-empty">No recommendations found. Add more books to Bookeep!</div>`;
+        return;
+    }
+
+    const makeCard = (slot, displayIdx) => {
+        const { book, poolKey, isCurveball, isAuthorPick } = slot;
+        const olUrl = `https://openlibrary.org${book.key}`;
+        const grUrl = `https://www.goodreads.com/search?q=${encodeURIComponent(book.title + ' ' + book.author)}`;
+        const yearStr = book.year ? ` · ${book.year}` : '';
+        const pagesStr = book.pages ? ` · ~${book.pages}p` : '';
+
+        const matchedSubjects = book.subjects
+            .filter(s => topProfile.some(ts => s.includes(ts) || ts.includes(s)))
+            .slice(0, 3);
+        const tagsHtml = matchedSubjects.length
+            ? matchedSubjects.map(s => `<span class="rec-subject-badge">${capitalize(s)}</span>`).join('')
+            : '';
+
+        const cardClass = isCurveball ? ' curveball' : isAuthorPick ? ' author-pick' : '';
+        const label = isCurveball
+            ? '<div class="curveball-label">Curveball</div>'
+            : isAuthorPick
+                ? '<div class="curveball-label">Author</div>'
+                : '';
+
+        // Store key type so hideRec can reconstruct the correct type (number vs string)
+        const poolKeyAttr = String(poolKey).replace(/"/g, '&quot;');
+        const poolKeyType = typeof poolKey;
+
+        return `
+            <div class="rec-card${cardClass}" id="rec-card-${displayIdx}">
+                <div class="rec-card-body">
+                    <div class="rec-card-info">
+                        ${label}
+                        <div class="rec-book-title">${escapeHtml(book.title)}</div>
+                        <div class="rec-book-author">by ${escapeHtml(book.author)}${yearStr}${pagesStr}</div>
+                        ${tagsHtml ? `<div class="rec-subjects mt-1">${tagsHtml}</div>` : ''}
+                    </div>
+                    <div class="rec-card-actions">
+                        <a href="${olUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary rec-link-btn">OpenLibrary</a>
+                        <a href="${grUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary rec-link-btn">Goodreads</a>
+                        <button class="btn btn-sm btn-outline-danger rec-hide-btn"
+                            data-rec-idx="${displayIdx}"
+                            data-rec-key="${poolKeyAttr}"
+                            data-rec-key-type="${poolKeyType}"
+                            onclick="hideRec(this)"
+                            title="Hide this book">✕ Hide</button>
+                    </div>
+                </div>
+            </div>`;
+    };
+
+    const cardsHtml = displaySlots.map((slot, i) => makeCard(slot, i)).join('');
+    const totalShown = displaySlots.length;
+    const totalPool = recCandidatePool.length + recCurveballs.length;
+
+    container.innerHTML = `
+        <div class="rec-header mb-3">
+            <p class="text-muted rec-subtitle">Based on your reading history —
+            showing ${totalShown} of ${totalPool} scored recommendations.</p>
+            <button class="btn btn-outline-primary btn-sm" onclick="cycleRecommendations()">
+                🔄 Refresh All
+            </button>
+        </div>
+        <div id="recCardList">${cardsHtml}</div>`;
+}
+
+function hideRec(btn) {
+    const displayIdx = parseInt(btn.dataset.recIdx, 10);
+    const rawKey = btn.dataset.recKey;
+    const poolKey = btn.dataset.recKeyType === 'number' ? parseInt(rawKey, 10) : rawKey;
+
+    const cardEl = document.getElementById(`rec-card-${displayIdx}`);
+    if (cardEl) {
+        cardEl.style.transition = 'opacity 0.28s, transform 0.28s';
+        cardEl.style.opacity = '0';
+        cardEl.style.transform = 'translateX(16px)';
+    }
+
+    setTimeout(() => {
+        recHiddenPool.add(poolKey);
+
+        const hiddenGeneric = new Set([...recHiddenPool].filter(k => typeof k === 'number'));
+        const genericPool = recCandidatePool.filter(b => !b.isAuthorPick);
+        if (hiddenGeneric.size >= genericPool.length &&
+            [...recHiddenPool].filter(k => typeof k === 'string' && k.startsWith('au_')).length >= recCandidatePool.filter(b => b.isAuthorPick).length &&
+            [...recHiddenPool].filter(k => typeof k === 'string' && k.startsWith('cb_')).length >= recCurveballs.length) {
+            const container = document.getElementById('recContainer');
+            if (container) {
+                container.innerHTML = `<div class="rec-end-msg">
+                    <div style="font-size:22px;margin-bottom:8px">📚</div>
+                    <div style="font-weight:500;margin-bottom:4px;">End of recommendations list</div>
+                    <div>You've browsed all suggestions. Click <em>Generate Recommendations</em> to refresh.</div>
+                </div>`;
+                return;
+            }
+        }
+
+        renderRecommendations();
+    }, 280);
+}
+
+function cycleRecommendations() {
+    recNextIdx = Math.min(recNextIdx + 10, recCandidatePool.length);
+    recHiddenPool.clear();
+    if (recNextIdx >= recCandidatePool.length) recNextIdx = 0;
+    renderRecommendations();
+}
+
+// ── init / public ─────────────────────────────────────────────────────────────
 
 async function initRecommendations() {
     const container = document.getElementById('recContainer');
@@ -774,354 +1629,60 @@ async function initRecommendations() {
         return;
     }
 
-    showRecLoading('Gathering your reading history…');
-
-    const userBooks = await getUserBooks();
+    showRecLoading('Reading your library…');
+        const userBooks = await getUserBooks();
 
     if (!userBooks || userBooks.length === 0) {
-        container.innerHTML = `
-            <div class="alert alert-warning mt-3">
-                <h5>No Books Found</h5>
-                <p class="mb-0">Add some books to <a href="./Bookeep.html">Bookeep</a> first, 
-                and we'll generate personalized recommendations based on what you've read!</p>
-            </div>`;
+        container.innerHTML = `<div class="rec-empty">
+            No books found. Add some to <a href="./Bookeep.html">Bookeep</a> first!
+        </div>`;
         return;
-    }
-
-    showRecLoading(`Analyzing ${userBooks.length} book${userBooks.length !== 1 ? 's' : ''} you've read…`);
-
+    }   
+    showRecLoading(`Analysing ${userBooks.length} book${userBooks.length !== 1 ? 's' : ''}…`);
     const sampleBooks = userBooks.slice(0, 8);
     const userProfile = await buildUserProfile(sampleBooks, userBooks);
-
-    window._recUserProfile = userProfile;
-    userProfile_topSubjects = userProfile.topSubjects;
-
-    showRecLoading('Searching for similar books…');
-
-    const candidates = await fetchCandidates(userProfile, userBooks);
-
-    showRecLoading('Scoring recommendations…');
-
-    recCandidatePool = scoreCandidates(candidates, userProfile, userBooks);
-
-    recDisplayed = recCandidatePool.slice(0, 10).map((_, i) => i);
-
-    renderRecommendations();
-}
-
-async function getUserBooks() {
-    try {
-        const currentUser = window.authUI ? window.authUI.getCurrentUser() : null;
-        if (currentUser) {
-            const data = await window.firebaseAuth.getUserData(currentUser.uid);
-            if (data && data.bookeep && data.bookeep.books) {
-                return data.bookeep.books;
-            }
-        }
-        const stored = localStorage.getItem('bookeep_books');
-        return stored ? JSON.parse(stored) : [];
-    } catch (e) {
-        console.error('Error fetching user books:', e);
-        return [];
-    }
-}
-
-async function buildUserProfile(sampleBooks, allBooks) {
-    const authorCounts = {};
-    const subjectCounts = {};
-    let totalRating = 0;
-    let ratedCount = 0;
-
-    allBooks.forEach(b => {
-        if (b.author) {
-            const a = b.author.trim().toLowerCase();
-            authorCounts[a] = (authorCounts[a] || 0) + 1;
-        }
-        if (b.rating && b.rating > 0) {
-            totalRating += b.rating;
-            ratedCount++;
-        }
-    });
-
-    const subjectFetches = sampleBooks.map(book => fetchBookSubjects(book));
-    const subjectResults = await Promise.allSettled(subjectFetches);
-
-    subjectResults.forEach(result => {
-        if (result.status === 'fulfilled' && result.value) {
-            result.value.forEach(subj => {
-                const s = subj.toLowerCase().trim();
-                subjectCounts[s] = (subjectCounts[s] || 0) + 1;
-            });
-        }
-    });
-
-    const topSubjects = Object.entries(subjectCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(e => e[0]);
-
-    const topAuthors = Object.entries(authorCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(e => e[0]);
-
-    return {
-        topSubjects,
-        topAuthors,
-        subjectCounts,
-        authorCounts,
-        avgRating: ratedCount > 0 ? totalRating / ratedCount : 3
-    };
-}
-
-async function fetchBookSubjects(book) {
-    try {
-        const query = encodeURIComponent(`${book.title} ${book.author || ''}`.trim());
-        const resp = await fetch(
-            `https://openlibrary.org/search.json?q=${query}&limit=1&fields=key,subject`
-        );
-        const data = await resp.json();
-        if (data.docs && data.docs.length > 0 && data.docs[0].subject) {
-            return data.docs[0].subject.slice(0, 10);
-        }
-    } catch (e) { } // skip
-    return [];
-}
-
-async function fetchCandidates(userProfile, userBooks) {
-    const readTitles = new Set(
-        userBooks.map(b => b.title.toLowerCase().trim())
-    );
-    const readAuthors = new Set(
-        userBooks.map(b => (b.author || '').toLowerCase().trim()).filter(Boolean)
-    );
-
-    const seen = new Set();
-    const candidates = [];
-
-    const subjectsToQuery = userProfile.topSubjects.slice(0, 3);
-
-    const authorsToQuery = userProfile.topAuthors.slice(0, 2);
-
-    const queries = [
-        ...subjectsToQuery.map(s => ({
-            url: `https://openlibrary.org/search.json?subject=${encodeURIComponent(s)}&limit=12&fields=key,title,author_name,subject,first_publish_year,number_of_pages_median`,
-            type: 'subject',
-            tag: s
-        })),
-        ...authorsToQuery.map(a => ({
-            url: `https://openlibrary.org/search.json?author=${encodeURIComponent(a)}&limit=8&fields=key,title,author_name,subject,first_publish_year,number_of_pages_median`,
-            type: 'author',
-            tag: a
-        }))
-    ];
-
-    const fetches = queries.map(q =>
-        fetch(q.url)
-            .then(r => r.json())
-            .then(data => ({ data, tag: q.tag, type: q.type }))
-            .catch(() => null)
-    );
-
-    const results = await Promise.allSettled(fetches);
-
-    results.forEach(result => {
-        if (result.status !== 'fulfilled' || !result.value) return;
-        const { data, tag } = result.value;
-        if (!data.docs) return;
-
-        data.docs.forEach(doc => {
-            if (!doc.title || !doc.key) return;
-
-            const titleNorm = doc.title.toLowerCase().trim();
-            const authorNorm = doc.author_name ? doc.author_name[0].toLowerCase().trim() : '';
-
-            if (readTitles.has(titleNorm)) return;
-            if (seen.has(doc.key)) return;
-            seen.add(doc.key);
-
-            candidates.push({
-                key: doc.key,
-                title: doc.title,
-                author: doc.author_name ? doc.author_name[0] : 'Unknown Author',
-                subjects: (doc.subject || []).slice(0, 15).map(s => s.toLowerCase()),
-                year: doc.first_publish_year || null,
-                pages: doc.number_of_pages_median || null,
-                foundVia: tag
-            });
-        });
-    });
-
-    return candidates;
-}
-
-function scoreCandidates(candidates, userProfile, userBooks) {
-    const { subjectCounts, authorCounts } = userProfile;
-
-    const scored = candidates.map(book => {
-        let score = 0;
-
-        book.subjects.forEach(s => {
-            if (subjectCounts[s]) {
-                score += subjectCounts[s] * 2;
-            } else if (userProfile.topSubjects.some(ts => s.includes(ts) || ts.includes(s))) {
-                score += 1;  
-            }
-        });
-
-        const authorNorm = book.author.toLowerCase().trim();
-        if (authorCounts[authorNorm]) {
-            score += authorCounts[authorNorm] * 3;
-        }
-
-        if (book.year && book.year < 1900) score -= 1;
-
-        return { ...book, score };
-    });
-
-    scored.sort((a, b) => b.score - a.score);
-
-    return scored;
-}
-
-function renderRecommendations() {
-    const container = document.getElementById('recContainer');
-    if (!container) return;
-
-    const toShow = recDisplayed.map(i => recCandidatePool[i]).filter(Boolean);
-
-    if (toShow.length === 0) {
-        container.innerHTML = `<div class="alert alert-info mt-3">No recommendations found. Try adding more books to Bookeep!</div>`;
-        return;
-    }
-
-    const cards = toShow.map((book, displayIdx) => {
-        const poolIdx = recDisplayed[displayIdx];
-        const olKey = book.key.replace('/works/', '');
-        const olUrl = `https://openlibrary.org${book.key}`;
-        const grUrl = `https://www.goodreads.com/search?q=${encodeURIComponent(book.title + ' ' + book.author)}`;
-
-        const yearStr = book.year ? ` · ${book.year}` : '';
-        const pagesStr = book.pages ? ` · ~${book.pages} pages` : '';
-        const _topSubs = userProfile_topSubjects || [];
-        const topSubjects = book.subjects
-            .filter(s => _topSubs.length === 0 || _topSubs.some(ts => s.includes(ts) || ts.includes(s)))
-            .slice(0, 3);
-
-        const matchedSubjectsHtml = topSubjects.length > 0
-            ? topSubjects.map(s =>
-                `<span class="rec-subject-badge">${capitalize(s)}</span>`
-            ).join('')
-            : '';
-
-        return `
-            <div class="rec-card" id="rec-card-${displayIdx}" data-pool-idx="${poolIdx}">
-                <div class="rec-card-body">
-                    <div class="rec-card-info">
-                        <div class="rec-book-title">${escapeHtml(book.title)}</div>
-                        <div class="rec-book-author">by ${escapeHtml(book.author)}${yearStr}${pagesStr}</div>
-                        ${matchedSubjectsHtml ? `<div class="rec-subjects mt-1">${matchedSubjectsHtml}</div>` : ''}
-                    </div>
-                    <div class="rec-card-actions">
-                        <a href="${olUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary rec-link-btn">
-                            OpenLibrary
-                        </a>
-                        <a href="${grUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary rec-link-btn">
-                            Goodreads
-                        </a>
-                        <button class="btn btn-sm btn-outline-danger rec-hide-btn" 
-                                onclick="hideRecommendation(${displayIdx})" 
-                                title="Hide this book and get a new suggestion">
-                            ✕ Hide
-                        </button>
-                    </div>
-                </div>
-            </div>`;
-    }).join('');
-
-    container.innerHTML = `
-        <div class="rec-header mb-3">
-            <p class="text-muted rec-subtitle">Based on your reading history — 
-            showing ${toShow.length} of ${recCandidatePool.length} scored recommendations.</p>
-            <button class="btn btn-outline-primary btn-sm" onclick="refreshAllRecommendations()">
-                🔄 Refresh All
-            </button>
-        </div>
-        <div id="recCardList">${cards}</div>`;
-}
-
-let userProfile_topSubjects = [];
-
-function hideRecommendation(displayIdx) {
-    const card = document.getElementById(`rec-card-${displayIdx}`);
-    if (card) {
-        card.style.transition = 'opacity 0.3s, transform 0.3s';
-        card.style.opacity = '0';
-        card.style.transform = 'translateX(20px)';
-    }
-
-    setTimeout(() => {
-        const usedIndices = new Set(recDisplayed);
-        let nextIdx = -1;
-        for (let i = 0; i < recCandidatePool.length; i++) {
-            if (!usedIndices.has(i)) {
-                nextIdx = i;
-                break;
-            }
-        }
-
-        if (nextIdx === -1) {
-            recDisplayed.splice(displayIdx, 1);
-        } else {
-            recDisplayed[displayIdx] = nextIdx;
-        }
-
-        renderRecommendations();
-    }, 300);
-}
-
-function refreshAllRecommendations() {
-    const usedMax = Math.max(...recDisplayed) + 1;
-    const nextStart = usedMax;
-    const available = [];
-    for (let i = nextStart; i < recCandidatePool.length; i++) available.push(i);
-
-    if (available.length === 0) {
-        recDisplayed = recCandidatePool.slice(0, 10).map((_, i) => i);
-    } else {
-        recDisplayed = available.slice(0, 10);
-        if (recDisplayed.length < 10) {
-            const needed = 10 - recDisplayed.length;
-            for (let i = 0; i < needed && i < nextStart; i++) {
-                recDisplayed.push(i);
-            }
-        }
-    }
+    _userProfile = userProfile; 
+    showRecLoading('Fetching candidates…');
+    const candidates = await fetchCandidates(userProfile, userBooks);   
+    showRecLoading('Ranking…');
+    // Keep author picks separate so diversify() can't drop them
+    const authorPicks = candidates.filter(b => b.isAuthorPick);
+    const nonAuthorCandidates = candidates.filter(b => !b.isAuthorPick);
+    const scoredGeneric = scoreCandidates(nonAuthorCandidates, userProfile);
+    recCandidatePool = [...authorPicks, ...scoredGeneric];
+    recCurveballs = pickCurveballs(candidates, userProfile, 3);
+    recNextIdx = 0;
+    recHiddenPool.clear();  
     renderRecommendations();
 }
 
 async function refreshRecommendations() {
     recCandidatePool = [];
-    recDisplayed = [];
+    recCurveballs = [];
+    recNextIdx = 0;
+    recHiddenPool.clear();
     await initRecommendations();
 }
 
-function showRecLoading(message) {
-    const container = document.getElementById('recContainer');
-    if (!container) return;
-    container.innerHTML = `
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary mb-3" role="status"></div>
-            <div class="text-muted">${message}</div>
-        </div>`;
+function scoreCandidates(candidates, userProfile) {
+    const { subjectCounts, authorCounts, topSubjects } = userProfile;
+
+    const scored = candidates
+        .filter(book => !book.isCurveball)
+        .map(book => {
+            let score = 0;
+            book.subjects.forEach(s => {
+                if (subjectCounts[s]) score += subjectCounts[s];
+                else if (topSubjects.some(ts => s.includes(ts) || ts.includes(s))) score += 0.5;
+            });
+            const authorNorm = book.author.toLowerCase().trim();
+            if (authorCounts[authorNorm]) score += authorCounts[authorNorm];
+            if (book.year && book.year < 1900) score -= 0.5;
+            return { ...book, score };
+        });
+
+    scored.sort((a, b) => b.score - a.score);
+    return diversify(scored);
 }
 
-function escapeHtml(str) {
-    const d = document.createElement('div');
-    d.textContent = str;
-    return d.innerHTML;
-}
-
-function capitalize(str) {
-    return str.charAt(0).toUpperCase() + str.slice(1);
-}
+window.recRefreshAll = refreshRecommendations;

@@ -511,17 +511,17 @@ function loadBookeepData() {
 
 function loadBookHelpData() {
     if (!currentUserData) return;
-    console.log('BookHelp data loaded:', currentUserData.bookhelp);
+    if (typeof window.initBookHelp === 'function') window.initBookHelp(currentUserData);
 }
 
 function loadBookStatsData() {
     if (!currentUserData) return;
-    console.log('BookStats data loaded:', currentUserData.bookstats);
+    if (typeof window.initBookStats === 'function') window.initBookStats(currentUserData);
 }
 
 function loadBookNotesData() {
     if (!currentUserData) return;
-    console.log('BookNotes data loaded:', currentUserData.booknotes);
+    if (typeof window.initBookNotes === 'function') window.initBookNotes(currentUserData);
 }
 
 window.authUI = {
@@ -529,5 +529,6 @@ window.authUI = {
     openUserOptions,
     handleLogout,
     getCurrentUser: () => currentUser,
-    getCurrentUserData: () => currentUserData
+    getCurrentUserData: () => currentUserData,
+    setCurrentUserData: (data) => { currentUserData = data; }
 };

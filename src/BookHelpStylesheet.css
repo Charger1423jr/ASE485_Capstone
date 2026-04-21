@@ -367,3 +367,59 @@ body.dark-mode .rec-how-it-works {
     border-color: #2a3a6e;
     color: #7aabff;
 }
+
+.rec-card.curveball {
+    border-color: #5DCAA5;
+    background: #E1F5EE;
+}
+.rec-card.curveball .rec-book-title { color: #085041; }
+.rec-card.curveball .rec-book-author { color: #0F6E56; }
+.rec-card.curveball .rec-subject-badge {
+    background: #9FE1CB;
+    color: #085041;
+}
+.curveball-label { color: #0F6E56; }
+
+@media (prefers-color-scheme: dark) {
+    .rec-card.curveball { background: #04342C; border-color: #0F6E56; }
+    .rec-card.curveball .rec-book-title { color: #9FE1CB; }
+    .rec-card.curveball .rec-book-author { color: #5DCAA5; }
+    .rec-card.curveball .rec-subject-badge { background: #085041; color: #9FE1CB; }
+    .curveball-label { color: #5DCAA5; }
+}
+
+.rec-card.author-pick {
+    border-color: #AFA9EC;
+    background: #EEEDFE;
+}
+.rec-card.author-pick .rec-book-title { color: #26215C; }
+.rec-card.author-pick .rec-book-author { color: #534AB7; }
+.rec-card.author-pick .rec-subject-badge {
+    background: #CECBF6;
+    color: #3C3489;
+}
+
+@media (prefers-color-scheme: dark) {
+    .rec-card.author-pick { background: #26215C; border-color: #534AB7; }
+    .rec-card.author-pick .rec-book-title { color: #CECBF6; }
+    .rec-card.author-pick .rec-book-author { color: #AFA9EC; }
+    .rec-card.author-pick .rec-subject-badge { background: #3C3489; color: #CECBF6; }
+}
+
+.rec-card {
+    border-color: #85B7EB;
+    background: #E6F1FB;
+}
+.rec-card .rec-book-title { color: #042C53; }
+.rec-card .rec-book-author { color: #185FA5; }
+.rec-card .rec-subject-badge {
+    background: #B5D4F4;
+    color: #0C447C;
+}
+
+@media (prefers-color-scheme: dark) {
+    .rec-card { background: #042C53; border-color: #185FA5; }
+    .rec-card .rec-book-title { color: #B5D4F4; }
+    .rec-card .rec-book-author { color: #85B7EB; }
+    .rec-card .rec-subject-badge { background: #0C447C; color: #B5D4F4; }
+}

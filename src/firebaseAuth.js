@@ -1,11 +1,11 @@
 const firebaseConfig = {
-  apiKey: "APIKEY",
-  authDomain: "AUTHDOMAIN",
-  projectId: "ID",
-  storageBucket: "BUCKET",
-  messagingSenderId: "SENDERID",
-  appId: "APPID",
-  measurementId: "ID"
+    apiKey: "APIKEY",
+    authDomain: "AUTHDOMAIN",
+    projectId: "ID",
+    storageBucket: "BUCKET",
+    messagingSenderId: "SENDERID",
+    appId: "APPID",
+    measurementId: "ID"
 };
 
 let app, auth, db;
@@ -41,6 +41,7 @@ function createUserData(uid, email, username) {
         
         bookhelp: {
             wpmSpeed: null,
+            wpmHistory: [],
             recommendations: [],
             lastComprehensionTest: {
                 score: 0,
@@ -48,6 +49,7 @@ function createUserData(uid, email, username) {
                 percentage: 0,
                 date: null
             },
+            comprehensionHistory: [],
             totalReadingTime: 0,
             readingTimeByMonth: {}
         },
@@ -62,7 +64,7 @@ function createUserData(uid, email, username) {
         },
         
         booknotes: {
-            folders: []
+            collections: []
         }
     };
 }
@@ -219,8 +221,10 @@ async function updateBookHelpData(uid, data) {
     try {
         const updateData = {};
         if (data.wpmSpeed !== undefined) updateData['bookhelp.wpmSpeed'] = data.wpmSpeed;
+        if (data.wpmHistory) updateData['bookhelp.wpmHistory'] = data.wpmHistory;
         if (data.recommendations) updateData['bookhelp.recommendations'] = data.recommendations;
         if (data.lastComprehensionTest) updateData['bookhelp.lastComprehensionTest'] = data.lastComprehensionTest;
+        if (data.comprehensionHistory) updateData['bookhelp.comprehensionHistory'] = data.comprehensionHistory;
         if (data.totalReadingTime !== undefined) updateData['bookhelp.totalReadingTime'] = data.totalReadingTime;
         if (data.readingTimeByMonth) updateData['bookhelp.readingTimeByMonth'] = data.readingTimeByMonth;
         
@@ -250,10 +254,10 @@ async function updateBookStatsData(uid, data) {
     }
 }
 
-async function updateBookNotesData(uid, folders) {
+async function updateBookNotesData(uid, collections) {
     try {
         await db.collection('users').doc(uid).update({
-            'booknotes.folders': folders
+            'booknotes.collections': collections
         });
         return { success: true };
     } catch (error) {

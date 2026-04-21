@@ -8,46 +8,199 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="BookStatsStylesheet.css">
     <link rel="stylesheet" href="authStylesheet.css">
-    
+
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+    <style>
+        .stat-badge {
+            display: inline-flex; flex-direction: column; align-items: center;
+            border: 2px solid #224499; border-radius: 10px;
+            padding: 6px 14px; margin: 4px 6px 4px 0;
+            background: white; min-width: 90px;
+        }
+        .stat-badge-label { font-size:.72rem; color:#555; font-weight:600; text-transform:uppercase; letter-spacing:.03em; }
+        .stat-badge-value { font-size:1.2rem; font-weight:700; color:#224499; line-height:1.2; }
+        .summary-row { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:14px; }
+
+        .stat-section {
+            background:white; border:1px solid #dee2e6; border-radius:10px;
+            padding:20px 22px 16px; margin-bottom:22px;
+        }
+        .stat-section h3 { color:#224499; font-size:1.15rem; font-weight:700; margin-bottom:6px; }
+        .stat-section .section-desc { font-size:.83rem; color:#888; margin-bottom:12px; }
+
+        .stat-group-label {
+            font-size:1.35rem; font-weight:700; color:#224499;
+            border-bottom:2px solid #224499; padding-bottom:6px; margin:28px 0 16px;
+        }
+        .chart-pair { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+        @media(max-width:768px){ .chart-pair{grid-template-columns:1fr;} }
+
+        #statsLoading {
+            display:flex; flex-direction:column; align-items:center;
+            justify-content:center; gap:14px; padding:60px 0;
+        }
+        .stats-spinner {
+            border:5px solid #e0e0e0; border-top:5px solid #224499;
+            border-radius:50%; width:50px; height:50px;
+            animation:spin .85s linear infinite;
+        }
+        @keyframes spin { to{transform:rotate(360deg);} }
+        #statsEmpty { text-align:center; padding:60px 20px; color:#888; }
+        #statsEmpty .empty-icon { font-size:3rem; margin-bottom:12px; }
+        canvas { max-height:280px; }
+    </style>
 </head>
 <body>
     <header>
-        <nav class="navbar" style="background-color: #224499;">
+        <nav class="navbar" style="background-color:#224499;">
             <div class="container-fluid d-flex justify-content-between align-items-center">
-                <a class="navbar-brand d-flex align-items-end" href="./BookCenter.html" style="color: white; text-decoration: none;">
+                <a class="navbar-brand d-flex align-items-end" href="./BookCenter.html" style="color:white;text-decoration:none;">
                     <img src="./images/bookeeplogo.png" alt="Bookeep Logo" width="42" height="52" class="d-inline-block">
                     <h1 class="mb-0 ms-2">ookCenter</h1>
                 </a>
-                <div id="navbarButtons">
-                    <!-- User menu will be added here by JavaScript -->
-                </div>
+                <div id="navbarButtons"></div>
             </div>
         </nav>
     </header>
 
     <div class="nav-box">
         <div class="nav-box-title">Navigation</div>
-        <a href="./Bookeep.html" class="nav-box-item">Bookeep</a>
-        <a href="./BookHelp.html" class="nav-box-item">BookHelp</a>
+        <a href="./Bookeep.html"   class="nav-box-item">Bookeep</a>
+        <a href="./BookHelp.html"  class="nav-box-item">BookHelp</a>
         <a href="./BookStats.html" class="nav-box-item disabled">BookStats</a>
         <a href="./BookNotes.html" class="nav-box-item">BookNotes</a>
     </div>
+
     <div class="main-content">
-    <article class="container mt-4">
-        <h1 style="text-align: center; margin-bottom: 0; padding-top: 5px"><b>BookStats</b></h1>
-        <div style="text-align: center; font-size: 0.9rem; color: gray; margin-bottom: 10px;">
-            Analytics and insights for your reading journey.
-        </div>
-        <hr style="margin-top: 0;">
-        
-        <div class="alert alert-info mt-4">
-            <h5>📊 Coming Soon!</h5>
-            <p class="mb-0">BookStats features are currently in development. Soon you'll be able to see detailed analytics of your reading habits!</p>
-        </div>
-    </article>
+        <article class="container mt-4">
+            <h1 style="text-align:center;margin-bottom:0;padding-top:5px"><b>BookStats</b></h1>
+            <div style="text-align:center;font-size:.9rem;color:gray;margin-bottom:10px;">
+                Analytics and insights for your reading journey.
+            </div>
+            <hr style="margin-top:0;">
+
+            <div id="statsLoading" style="display:none;">
+                <div class="stats-spinner"></div>
+                <div style="color:#224499;font-size:1rem;">Loading your stats&hellip;</div>
+            </div>
+            <div id="statsEmpty" style="display:none;">
+                <div class="empty-icon">📚</div>
+                <h4>No data yet!</h4>
+                <p>Add books in <a href="./Bookeep.html">Bookeep</a> and complete tests in <a href="./BookHelp.html">BookHelp</a> to see your stats here.</p>
+            </div>
+
+            <div id="statsContainer" style="display:none;">
+
+                <!-- ══ BOOKEEP ════════════════════════════════════════ -->
+                <div class="stat-group-label">📚 Bookeep Stats</div>
+
+                <div class="stat-section">
+                    <h3>Books Read</h3>
+                    <p class="section-desc">Total books logged, last 12 months, and last month &mdash; plus a monthly breakdown.</p>
+                    <div id="booksReadSummary" class="summary-row"></div>
+                    <canvas id="booksReadChart"></canvas>
+                </div>
+
+                <div class="chart-pair">
+                    <div class="stat-section">
+                        <h3>Points</h3>
+                        <p class="section-desc">Words read &divide; 10,000, tallied per year.</p>
+                        <div id="pointsSummary" class="summary-row"></div>
+                        <canvas id="pointsChart"></canvas>
+                    </div>
+                    <div class="stat-section">
+                        <h3>Word Count</h3>
+                        <p class="section-desc">Words read &mdash; all time, this year, and last month.</p>
+                        <div id="wordCountSummary" class="summary-row"></div>
+                        <canvas id="wordCountChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-pair">
+                    <div class="stat-section">
+                        <h3>Book Submissions &mdash; by Year</h3>
+                        <p class="section-desc">How many books you logged each calendar year.</p>
+                        <canvas id="submissionsYearChart"></canvas>
+                    </div>
+                    <div class="stat-section">
+                        <h3>Book Submissions &mdash; by Month</h3>
+                        <p class="section-desc">Monthly breakdown, colour-coded by year.</p>
+                        <canvas id="submissionsMonthChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="stat-section">
+                    <h3>Book Ratings</h3>
+                    <p class="section-desc">Distribution of your 1&ndash;5 star ratings (half-stars rounded down).</p>
+                    <div id="ratingsSummary" class="summary-row"></div>
+                    <canvas id="ratingsChart"></canvas>
+                </div>
+
+                <!-- ══ BOOKHELP ═══════════════════════════════════════ -->
+                <div class="stat-group-label">📖 BookHelp Stats</div>
+
+                <div class="chart-pair">
+                    <div class="stat-section">
+                        <h3>WPM Tests Taken</h3>
+                        <p class="section-desc">Total saved tests, last 12 months, last month, and average WPM.</p>
+                        <div id="wpmCountSummary" class="summary-row"></div>
+                    </div>
+                    <div class="stat-section">
+                        <h3>WPM Speed Results</h3>
+                        <p class="section-desc">Your words-per-minute score for each saved test, in order.</p>
+                        <canvas id="wpmResultsChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-pair">
+                    <div class="stat-section">
+                        <h3>Comprehension Tests Taken</h3>
+                        <p class="section-desc">Total tests completed, last 12 months, last month, and average score.</p>
+                        <div id="compCountSummary" class="summary-row"></div>
+                    </div>
+                    <div class="stat-section">
+                        <h3>Comprehension Results</h3>
+                        <p class="section-desc">Correct answers (0&ndash;4) per test with % overlay. Dark blue = 4/4, red = 0&ndash;1.</p>
+                        <canvas id="compResultsChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="stat-section">
+                    <h3>Reading Timer &mdash; Time Spent</h3>
+                    <p class="section-desc">Time logged using the Reading Timer, broken down by month.</p>
+                    <div id="timeSummary" class="summary-row"></div>
+                    <canvas id="readingTimeChart"></canvas>
+                </div>
+
+                <!-- ══ BOOKNOTES ══════════════════════════════════════ -->
+                <div class="stat-group-label">📝 BookNotes Stats</div>
+
+                <div class="stat-section">
+                    <h3>Notes Overview</h3>
+                    <p class="section-desc">Total notes created across all collections, by time period.</p>
+                    <div id="notesSummary" class="summary-row"></div>
+                </div>
+
+                <div class="chart-pair">
+                    <div class="stat-section">
+                        <h3>Notes Created &mdash; by Month</h3>
+                        <p class="section-desc">How many notes you created each month over the last 13 months.</p>
+                        <canvas id="notesMonthChart"></canvas>
+                    </div>
+                    <div class="stat-section">
+                        <h3>Notes per Collection</h3>
+                        <p class="section-desc">How many notes are stored in each of your collections.</p>
+                        <canvas id="notesColChart"></canvas>
+                    </div>
+                </div>
+
+            </div><!-- /statsContainer -->
+        </article>
+    </div>
 
     <footer class="bg-dark text-white text-center py-3 mt-5">
         <div class="container">

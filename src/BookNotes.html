@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="BookNotesStylesheet.css">
     <link rel="stylesheet" href="authStylesheet.css">
-    
+
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -21,33 +21,31 @@
                     <img src="./images/bookeeplogo.png" alt="Bookeep Logo" width="42" height="52" class="d-inline-block">
                     <h1 class="mb-0 ms-2">ookCenter</h1>
                 </a>
-                <div id="navbarButtons">
-                    <!-- User menu will be added here by JavaScript -->
-                </div>
+                <div id="navbarButtons"></div>
             </div>
         </nav>
     </header>
 
     <div class="nav-box">
         <div class="nav-box-title">Navigation</div>
-        <a href="./Bookeep.html" class="nav-box-item">Bookeep</a>
-        <a href="./BookHelp.html" class="nav-box-item">BookHelp</a>
+        <a href="./Bookeep.html"   class="nav-box-item">Bookeep</a>
+        <a href="./BookHelp.html"  class="nav-box-item">BookHelp</a>
         <a href="./BookStats.html" class="nav-box-item">BookStats</a>
         <a href="./BookNotes.html" class="nav-box-item disabled">BookNotes</a>
     </div>
+
     <div class="main-content">
-    <article class="container mt-4">
-        <h1 style="text-align: center; margin-bottom: 0; padding-top: 5px"><b>BookNotes</b></h1>
-        <div style="text-align: center; font-size: 0.9rem; color: gray; margin-bottom: 10px;">
-            Organize your thoughts and insights from every book.
-        </div>
-        <hr style="margin-top: 0;">
-        
-        <div class="alert alert-info mt-4">
-            <h5>📝 Coming Soon!</h5>
-            <p class="mb-0">BookNotes features are currently in development. Soon you'll be able to create folders and articles to organize your book notes!</p>
-        </div>
-    </article>
+        <article class="container mt-4">
+            <h1 style="text-align:center; margin-bottom:0; padding-top:5px"><b>BookNotes</b></h1>
+            <div style="text-align:center; font-size:0.9rem; color:gray; margin-bottom:10px;">
+                Organize your thoughts and insights from every book.
+            </div>
+            <hr style="margin-top:0;">
+
+            <!-- Backend renders everything inside here -->
+            <div id="bnMain"></div>
+        </article>
+    </div>
 
     <footer class="bg-dark text-white text-center py-3 mt-5">
         <div class="container">

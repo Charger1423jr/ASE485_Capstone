@@ -12,6 +12,195 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        /* ── Goal Center AI layout ── */
+        .goal-ai-mode-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            background: #f0f5ff;
+            border: 1px solid #c8d8f8;
+            border-radius: 10px;
+            padding: 10px 16px;
+        }
+        .goal-ai-mode-label {
+            font-weight: 600;
+            color: #224499;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        .goal-ai-mode-btns {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .goal-mode-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px 16px;
+            border: 2px solid #c8d8f8;
+            border-radius: 8px;
+            background: white;
+            color: #224499;
+            font-family: Garamond, serif;
+            font-size: 0.92rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            line-height: 1.2;
+        }
+        .goal-mode-btn:hover:not(.active) {
+            background: #e8eeff;
+            border-color: #224499;
+        }
+        .goal-mode-btn.active {
+            background: #224499;
+            color: white;
+            border-color: #224499;
+        }
+        .goal-mode-sub {
+            font-size: 0.72rem;
+            font-weight: 400;
+            opacity: 0.8;
+            font-style: italic;
+        }
+
+        /* ── Two-column goal row ── */
+        .goal-row {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 24px;
+            align-items: start;
+            margin: 16px 0;
+        }
+        @media (max-width: 768px) {
+            .goal-row { grid-template-columns: 1fr; }
+        }
+        .goal-controls { min-width: 0; }
+
+        .goal-ai-btn {
+            background: linear-gradient(135deg, #224499, #3a6ae0);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-family: Garamond, serif;
+            transition: opacity 0.2s, transform 0.15s;
+        }
+        .goal-ai-btn:hover:not(:disabled) {
+            opacity: 0.88;
+            transform: translateY(-1px);
+            color: white;
+        }
+        .goal-ai-btn:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        /* ── AI panel ── */
+        .goal-ai-panel {
+            background: #f8faff;
+            border: 1.5px solid #c8d8f8;
+            border-radius: 10px;
+            padding: 16px 18px;
+            min-height: 140px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+        }
+        .goal-ai-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #888;
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 20px;
+            flex: 1;
+        }
+
+        /* ── AI suggestion card ── */
+        .goal-suggestion-card {
+            background: white;
+            border: 1.5px solid #c8d8f8;
+            border-left: 4px solid #224499;
+            border-radius: 8px;
+            padding: 12px 14px;
+            animation: goalFadeIn 0.35s ease;
+        }
+        @keyframes goalFadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .goal-suggestion-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .goal-suggestion-mode-badge {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #224499;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .goal-suggestion-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #224499;
+            line-height: 1.1;
+            margin-bottom: 4px;
+        }
+        .goal-suggestion-rationale {
+            font-size: 0.83rem;
+            color: #444;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+        .goal-suggestion-tip {
+            font-size: 0.78rem;
+            color: #224499;
+            background: #eef2ff;
+            border-radius: 6px;
+            padding: 6px 10px;
+            line-height: 1.45;
+        }
+        .goal-apply-btn {
+            margin-top: 10px;
+            font-size: 0.8rem;
+        }
+
+        /* ── Loading spinner inside panel ── */
+        .goal-ai-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex: 1;
+            padding: 20px;
+            color: #224499;
+            font-size: 0.85rem;
+        }
+        .goal-ai-spinner {
+            border: 3px solid #e0e0e0;
+            border-top: 3px solid #224499;
+            border-radius: 50%;
+            width: 28px; height: 28px;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
 </head>
 <body>
     <header>
@@ -181,8 +370,7 @@
             <div id="recommendationsContent" class="content-section">
                 <div class="tool-section card p-4">
                     <h2>Book Recommendations</h2>
-                    <p>Personalized suggestions generated from your Bookeep reading history. We analyze the titles and authors you've read, match them against the OpenLibrary catalog, and surface books you're likely to enjoy.</p>
-
+                    
                     <div class="rec-how-it-works mb-3">
                         <span class="rec-step-badge">1</span> Reads your Bookeep library &nbsp;
                         <span class="rec-arrow">→</span>&nbsp;
@@ -218,31 +406,80 @@
             <div id="goalsContent" class="content-section">
                 <div class="tool-section card p-4">
                     <h2>Goal Center</h2>
-                    <p>Set and track your reading goals. Whether it's pages per day, books per month, or total reading time, stay motivated!</p>
+                    <p>Set and track your reading goals. Stay motivated with AI-powered suggestions tailored to your history.</p>
+
+                    <!-- ── AI Mode selector (shared across both goals) ── -->
+                    <div class="goal-ai-mode-bar mb-3">
+                        <span class="goal-ai-mode-label">✨ AI Suggestion Mode:</span>
+                        <div class="goal-ai-mode-btns" id="goalAiModeBtns">
+                            <button class="goal-mode-btn active" data-mode="quick"       onclick="setGoalAiMode('quick')">
+                                ⚡ Quick <span class="goal-mode-sub">Short-term boost</span>
+                            </button>
+                            <button class="goal-mode-btn"        data-mode="recommended" onclick="setGoalAiMode('recommended')">
+                                🎯 Recommended <span class="goal-mode-sub">Mid-length boost</span>
+                            </button>
+                            <button class="goal-mode-btn"        data-mode="optimistic"  onclick="setGoalAiMode('optimistic')">
+                                🚀 Optimistic <span class="goal-mode-sub">Long-term boost</span>
+                            </button>
+                        </div>
+                    </div>
 
                     <hr>
-                    <h5>WPM Goal</h5>
-                    <div class="d-flex align-items-center gap-2 mb-3">
-                        <input id="wpmGoalInput" type="number" min="1" class="form-control" style="max-width:160px;" placeholder="WPM goal">
-                        <button id="wpmGoalSave" class="btn btn-primary" onclick="saveWpmGoal()">Save</button>
-                        <button id="wpmGoalClear" class="btn btn-outline-secondary" onclick="clearWpmGoal()">Clear</button>
+
+                    <!-- ── WPM Goal row ── -->
+                    <div class="goal-row">
+                        <!-- Left: controls -->
+                        <div class="goal-controls">
+                            <h5>WPM Goal</h5>
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <input id="wpmGoalInput" type="number" min="1" class="form-control" style="max-width:160px;" placeholder="WPM goal">
+                                <button id="wpmGoalSave" class="btn btn-primary" onclick="saveWpmGoal()">Save</button>
+                                <button id="wpmGoalClear" class="btn btn-outline-secondary" onclick="clearWpmGoal()">Clear</button>
+                            </div>
+                            <div id="wpmGoalStatus" class="mb-2 text-muted"></div>
+                            <button class="btn btn-sm goal-ai-btn" id="wpmSuggestBtn" onclick="generateGoalSuggestion('wpm')">
+                                ✨ Suggest WPM Goal
+                            </button>
+                        </div>
+                        <!-- Right: AI suggestion panel -->
+                        <div class="goal-ai-panel" id="wpmAiPanel">
+                            <div class="goal-ai-placeholder">
+                                <span>Click <strong>Suggest WPM Goal</strong> to get an AI-powered recommendation based on your test history.</span>
+                            </div>
+                        </div>
                     </div>
-                    <div id="wpmGoalStatus" class="mb-3 text-muted"></div>
 
                     <hr>
-                    <h5>Comprehension Goal (Streak)</h5>
-                    <div class="d-flex align-items-center gap-2 mb-3">
-                        <select id="compGoalInput" class="form-select" style="max-width:160px;">
-                            <option value="25">25%</option>
-                            <option value="50">50%</option>
-                            <option value="75">75%</option>
-                            <option value="100">100%</option>
-                        </select>
-                        <button id="compGoalSave" class="btn btn-primary" onclick="saveCompGoal()">Save</button>
-                        <button id="compGoalClear" class="btn btn-outline-secondary" onclick="clearCompGoal()">Clear</button>
+
+                    <!-- ── Comprehension Goal row ── -->
+                    <div class="goal-row">
+                        <!-- Left: controls -->
+                        <div class="goal-controls">
+                            <h5>Comprehension Goal <small class="text-muted">(Streak)</small></h5>
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <select id="compGoalInput" class="form-select" style="max-width:160px;">
+                                    <option value="25">25%</option>
+                                    <option value="50">50%</option>
+                                    <option value="75">75%</option>
+                                    <option value="100">100%</option>
+                                </select>
+                                <button id="compGoalSave" class="btn btn-primary" onclick="saveCompGoal()">Save</button>
+                                <button id="compGoalClear" class="btn btn-outline-secondary" onclick="clearCompGoal()">Clear</button>
+                            </div>
+                            <div id="compGoalStatus" class="mb-1 text-muted"></div>
+                            <div id="compStreakStatus" class="mb-2 text-muted"></div>
+                            <button class="btn btn-sm goal-ai-btn" id="compSuggestBtn" onclick="generateGoalSuggestion('comp')">
+                                ✨ Suggest Comprehension Goal
+                            </button>
+                        </div>
+                        <!-- Right: AI suggestion panel -->
+                        <div class="goal-ai-panel" id="compAiPanel">
+                            <div class="goal-ai-placeholder">
+                                <span>Click <strong>Suggest Comprehension Goal</strong> to get an AI-powered recommendation based on your test scores.</span>
+                            </div>
+                        </div>
                     </div>
-                    <div id="compGoalStatus" class="mb-3 text-muted"></div>
-                    <div id="compStreakStatus" class="mb-3 text-muted"></div>
+
                 </div>
             </div>
         </article>
