@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentUser = user;
 
             if (user) {
+                currentUserData = null; // clear stale data before async fetch
                 currentUserData = await window.firebaseAuth.getUserData(user.uid);
                 handleUserSignedIn(user);
 
@@ -51,6 +52,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 loadPageSpecificData();
             } else {
                 currentUserData = null;
+                if (typeof window.clearBookeep === 'function') window.clearBookeep();
+                if (typeof window.clearBookCenter === 'function') window.clearBookCenter();
                 handleUserSignedOut();
             }
 
@@ -484,6 +487,9 @@ function loadPageSpecificData() {
     const currentPage = getCurrentPage();
 
     switch (currentPage) {
+        case 'BookCenter':
+            if (typeof window.initBookCenter === 'function') window.initBookCenter(currentUserData);
+            break;
         case 'Bookeep':
             loadBookeepData();
             break;
@@ -501,12 +507,7 @@ function loadPageSpecificData() {
 
 function loadBookeepData() {
     if (!currentUserData) return;
-
-    if (currentUserData.bookeep && currentUserData.bookeep.books) {
-        books = currentUserData.bookeep.books;
-        renderBooks();
-        updateStats();
-    }
+    if (typeof window.initBookeep === 'function') window.initBookeep(currentUserData);
 }
 
 function loadBookHelpData() {

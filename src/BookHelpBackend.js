@@ -501,9 +501,10 @@ function finishWPMTest() {
     const saveBtn = document.getElementById('wpmSaveButton');
     if (saveBtn) { saveBtn.textContent = 'Save Result'; saveBtn.disabled = false; }
 
-    const goal = localStorage.getItem('wpmGoal');
+    const userData = window.authUI?.getCurrentUserData();
+    const goal = userData?.bookhelp?.goals?.wpmGoal ?? null;
     if (goal) {
-        const met = wpm >= parseInt(goal);
+        const met = wpm >= goal;
         scoreDiv.innerHTML += `<br><span class="text-${met ? 'success' : 'danger'}">${met ? '✅ Goal met!' : `❌ Goal: ${goal} WPM`}</span>`;
     }
 }
@@ -516,10 +517,12 @@ async function saveWpmResult() {
     const currentUser = window.authUI ? window.authUI.getCurrentUser() : null;
     if (currentUser) {
         await window.firebaseAuth.updateBookHelpData(currentUser.uid, { wpmSpeed: wpm });
-        document.getElementById('wpmSaveButton').textContent = 'Saved ✓';
-        document.getElementById('wpmSaveButton').disabled = true;
-    } else {
-        localStorage.setItem('wpmLastResult', wpm);
+        // Keep in-memory userData in sync
+        const userData = window.authUI.getCurrentUserData();
+        if (userData) {
+            if (!userData.bookhelp) userData.bookhelp = {};
+            userData.bookhelp.wpmSpeed = wpm;
+        }
         document.getElementById('wpmSaveButton').textContent = 'Saved ✓';
         document.getElementById('wpmSaveButton').disabled = true;
     }
@@ -651,16 +654,23 @@ async function submitCompAnswers() {
     document.getElementById('compQuestions').style.display = 'none';
     document.getElementById('compPromptContainer').style.display = 'none';
 
-    const goalStr = localStorage.getItem('compGoal');
-    if (goalStr) {
+    const userData = window.authUI?.getCurrentUserData();
+    const goalStr = userData?.bookhelp?.goals?.compGoal ?? null;
+    if (goalStr !== null) {
         const goal = parseInt(goalStr);
         if (pct >= goal) {
             compStreak++;
         } else {
             compStreak = 0;
         }
-        localStorage.setItem('compStreak', compStreak);
+        // Persist streak back to Firebase via goals
+        if (userData) {
+            if (!userData.bookhelp) userData.bookhelp = {};
+            if (!userData.bookhelp.goals) userData.bookhelp.goals = {};
+            userData.bookhelp.goals.compStreak = compStreak;
+        }
         updateCompStreakDisplay();
+        await saveGoalsToFirebase();
     }
 
     const currentUser = window.authUI ? window.authUI.getCurrentUser() : null;
@@ -677,7 +687,7 @@ async function submitCompAnswers() {
 // ─── GOAL CENTER AI (Reactive Machine Engine) ────────────────────────────────
 // No external AI — all calculations are deterministic, rule-based.
 // Pulls from: WPM history, comprehension history, Bookeep books (word count +
-// submission dates) via Firebase or localStorage, mirroring how BookStats reads data.
+// submission dates) via Firebase (in-memory userData), mirroring how BookStats reads data.
 
 let goalAiMode = 'recommended'; // 'quick' | 'recommended' | 'optimistic'
 
@@ -693,16 +703,17 @@ function setGoalAiMode(mode) {
 async function getGoalAllData() {
     const userData = window.authUI?.getCurrentUserData();
     const bh = userData?.bookhelp || {};
-    const books = userData?.bookeep?.books || JSON.parse(localStorage.getItem('bookeep_books') || '[]');
+    const books = userData?.bookeep?.books || [];
 
-    const wpmHistory  = bh.wpmHistory         || JSON.parse(localStorage.getItem('wpmHistory')          || '[]');
-    const compHistory = bh.comprehensionHistory|| JSON.parse(localStorage.getItem('comprehensionHistory')|| '[]');
+    const wpmHistory  = bh.wpmHistory          || [];
+    const compHistory = bh.comprehensionHistory || [];
 
-    const currentWpmGoal  = localStorage.getItem('wpmGoal')  || null;
-    const currentCompGoal = localStorage.getItem('compGoal') || null;
-    const compStreak      = parseInt(localStorage.getItem('compStreak') || '0');
+    const goals = bh.goals || {};
+    const currentWpmGoal  = goals.wpmGoal  != null ? String(goals.wpmGoal)  : null;
+    const currentCompGoal = goals.compGoal != null ? String(goals.compGoal) : null;
+    const streak          = goals.compStreak != null ? goals.compStreak : compStreak;
 
-    return { wpmHistory, compHistory, books, currentWpmGoal, currentCompGoal, compStreak };
+    return { wpmHistory, compHistory, books, currentWpmGoal, currentCompGoal, compStreak: streak };
 }
 
 // ── Reading pace analysis (from Bookeep books) ─────────────────────────────────
@@ -1118,26 +1129,77 @@ function escapeGoalHtml(str) {
 
 // ─── GOAL CENTER ─────────────────────────────────────────────────────────────
 
-function saveWpmGoal() {
+// ── Helpers: read/write goals through Firebase ────────────────────────────────
+
+async function saveGoalsToFirebase() {
+    const currentUser = window.authUI ? window.authUI.getCurrentUser() : null;
+    if (!currentUser) return;
+
+    const userData = window.authUI.getCurrentUserData();
+    const goals = userData?.bookhelp?.goals || {};
+
+    // Sync in-memory userData
+    if (userData) {
+        if (!userData.bookhelp) userData.bookhelp = {};
+        userData.bookhelp.goals = goals;
+    }
+
+    await window.firebaseAuth.updateBookHelpData(currentUser.uid, { goals });
+}
+
+function loadGoalsFromUserData(userData) {
+    const goals = userData?.bookhelp?.goals || {};
+    compStreak = goals.compStreak != null ? goals.compStreak : 0;
+}
+
+function clearGoalUI() {
+    compStreak = 0;
+    // Also wipe the in-memory goals so displays show empty
+    const userData = window.authUI?.getCurrentUserData();
+    if (userData?.bookhelp?.goals) {
+        userData.bookhelp.goals = { wpmGoal: null, compGoal: null, compStreak: 0 };
+    }
+    const wpmInput = document.getElementById('wpmGoalInput');
+    if (wpmInput) wpmInput.value = '';
+    const compSelect = document.getElementById('compGoalInput');
+    if (compSelect) compSelect.value = '25';
+    updateWpmGoalDisplay();
+    updateCompGoalDisplay();
+    updateCompStreakDisplay();
+}
+
+// ── Goal save / clear ─────────────────────────────────────────────────────────
+
+async function saveWpmGoal() {
     const val = document.getElementById('wpmGoalInput').value;
     if (!val || isNaN(val) || parseInt(val) <= 0) {
         alert('Please enter a valid WPM goal.');
         return;
     }
-    localStorage.setItem('wpmGoal', parseInt(val));
+    const userData = window.authUI?.getCurrentUserData();
+    if (userData) {
+        if (!userData.bookhelp) userData.bookhelp = {};
+        if (!userData.bookhelp.goals) userData.bookhelp.goals = {};
+        userData.bookhelp.goals.wpmGoal = parseInt(val);
+    }
     updateWpmGoalDisplay();
+    await saveGoalsToFirebase();
 }
 
-function clearWpmGoal() {
-    localStorage.removeItem('wpmGoal');
+async function clearWpmGoal() {
     document.getElementById('wpmGoalInput').value = '';
+    const userData = window.authUI?.getCurrentUserData();
+    if (userData?.bookhelp?.goals) userData.bookhelp.goals.wpmGoal = null;
     updateWpmGoalDisplay();
+    await saveGoalsToFirebase();
 }
 
 function updateWpmGoalDisplay() {
-    const goal = localStorage.getItem('wpmGoal');
+    const userData = window.authUI?.getCurrentUserData();
+    const goal = userData?.bookhelp?.goals?.wpmGoal ?? null;
     const statusEl = document.getElementById('wpmGoalStatus');
-    if (goal) {
+    if (!statusEl) return;
+    if (goal != null) {
         statusEl.textContent = `Current WPM goal: ${goal} WPM`;
         statusEl.className = 'mb-3 text-success';
     } else {
@@ -1146,25 +1208,36 @@ function updateWpmGoalDisplay() {
     }
 }
 
-function saveCompGoal() {
+async function saveCompGoal() {
     const val = document.getElementById('compGoalInput').value;
-    localStorage.setItem('compGoal', val);
-    compStreak = parseInt(localStorage.getItem('compStreak') || '0');
+    const userData = window.authUI?.getCurrentUserData();
+    if (userData) {
+        if (!userData.bookhelp) userData.bookhelp = {};
+        if (!userData.bookhelp.goals) userData.bookhelp.goals = {};
+        userData.bookhelp.goals.compGoal = parseInt(val);
+    }
     updateCompGoalDisplay();
+    await saveGoalsToFirebase();
 }
 
-function clearCompGoal() {
-    localStorage.removeItem('compGoal');
-    localStorage.removeItem('compStreak');
+async function clearCompGoal() {
+    const userData = window.authUI?.getCurrentUserData();
+    if (userData?.bookhelp?.goals) {
+        userData.bookhelp.goals.compGoal = null;
+        userData.bookhelp.goals.compStreak = 0;
+    }
     compStreak = 0;
     updateCompGoalDisplay();
     updateCompStreakDisplay();
+    await saveGoalsToFirebase();
 }
 
 function updateCompGoalDisplay() {
-    const goal = localStorage.getItem('compGoal');
+    const userData = window.authUI?.getCurrentUserData();
+    const goal = userData?.bookhelp?.goals?.compGoal ?? null;
     const statusEl = document.getElementById('compGoalStatus');
-    if (goal) {
+    if (!statusEl) return;
+    if (goal != null) {
         statusEl.textContent = `Current comprehension goal: ${goal}% per test`;
         statusEl.className = 'mb-3 text-success';
     } else {
@@ -1174,8 +1247,10 @@ function updateCompGoalDisplay() {
 }
 
 function updateCompStreakDisplay() {
+    const userData = window.authUI?.getCurrentUserData();
+    const streak = userData?.bookhelp?.goals?.compStreak ?? compStreak ?? 0;
     const streakEl = document.getElementById('compStreakStatus');
-    const streak = parseInt(localStorage.getItem('compStreak') || '0');
+    if (!streakEl) return;
     if (streak > 0) {
         streakEl.textContent = `🔥 Current streak: ${streak} test${streak !== 1 ? 's' : ''} meeting your goal`;
         streakEl.className = 'mb-3 text-warning fw-bold';
@@ -1188,20 +1263,27 @@ function updateCompStreakDisplay() {
 document.addEventListener('DOMContentLoaded', () => {
     loadWpmPrompt();
     loadCompPrompt();
+    // Goal displays start empty — populated by window.initBookHelp once auth resolves.
     updateWpmGoalDisplay();
     updateCompGoalDisplay();
     updateCompStreakDisplay();
-    compStreak = parseInt(localStorage.getItem('compStreak') || '0');
-
-    const savedWpmGoal = localStorage.getItem('wpmGoal');
-    if (savedWpmGoal) {
-        document.getElementById('wpmGoalInput').value = savedWpmGoal;
-    }
-    const savedCompGoal = localStorage.getItem('compGoal');
-    if (savedCompGoal) {
-        document.getElementById('compGoalInput').value = savedCompGoal;
-    }
 });
+
+// Called by authUI.js -> loadBookHelpData() when a user signs in.
+window.initBookHelp = function(userData) {
+    loadGoalsFromUserData(userData);
+
+    updateWpmGoalDisplay();
+    updateCompGoalDisplay();
+    updateCompStreakDisplay();
+
+    // Populate input fields from userData
+    const goals = userData?.bookhelp?.goals || {};
+    const wpmInput = document.getElementById('wpmGoalInput');
+    if (wpmInput) wpmInput.value = goals.wpmGoal != null ? goals.wpmGoal : '';
+    const compSelect = document.getElementById('compGoalInput');
+    if (compSelect && goals.compGoal != null) compSelect.value = goals.compGoal;
+};
 
 // ─── BOOK RECOMMENDATIONS ────────────────────────────────────────────────────
 
@@ -1241,13 +1323,17 @@ function escapeHtml(str) {
 
     async function getUserBooks() {
     try {
+        // Always read from in-memory userData first (already loaded on sign-in),
+        // fall back to a fresh Firebase fetch only if needed.
+        const cachedBooks = window.authUI?.getCurrentUserData()?.bookeep?.books;
+        if (cachedBooks) return cachedBooks;
+
         const currentUser = window.authUI?.getCurrentUser();
-            if (currentUser) {
+        if (currentUser) {
             const data = await window.firebaseAuth.getUserData(currentUser.uid);
             if (data?.bookeep?.books) return data.bookeep.books;
         }
-        const stored = localStorage.getItem('bookeep_books');
-        return stored ? JSON.parse(stored) : [];
+        return [];
     } catch (e) {
         console.error('Error fetching user books:', e);
         return [];

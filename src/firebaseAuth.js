@@ -51,7 +51,12 @@ function createUserData(uid, email, username) {
             },
             comprehensionHistory: [],
             totalReadingTime: 0,
-            readingTimeByMonth: {}
+            readingTimeByMonth: {},
+            goals: {
+                wpmGoal: null,
+                compGoal: null,
+                compStreak: 0
+            }
         },
         
         bookstats: {
@@ -227,6 +232,7 @@ async function updateBookHelpData(uid, data) {
         if (data.comprehensionHistory) updateData['bookhelp.comprehensionHistory'] = data.comprehensionHistory;
         if (data.totalReadingTime !== undefined) updateData['bookhelp.totalReadingTime'] = data.totalReadingTime;
         if (data.readingTimeByMonth) updateData['bookhelp.readingTimeByMonth'] = data.readingTimeByMonth;
+        if (data.goals !== undefined) updateData['bookhelp.goals'] = data.goals;
         
         await db.collection('users').doc(uid).update(updateData);
         return { success: true };

@@ -1,4 +1,3 @@
-const STORAGE_KEY = 'bookeep_books';
 let books = [];
 let editingBookId = null;
 let deleteBookId = null;
@@ -14,12 +13,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('yearLabel2').textContent = currentYear;
 
     updatePointsLabel();
-
-    setTimeout(() => {
-        loadBooks();
-        renderBooks();
-        updateStats();
-    }, 500);
+    // Books are loaded by authUI via window.initBookeep() once Firebase resolves.
+    // Render empty state immediately so the page isn't blank.
+    renderBooks();
+    updateStats();
 });
 
 // Points
@@ -206,38 +203,26 @@ function updateEditRating(bookId, val) {
 
 function loadBooks() {
     const currentUserData = window.authUI ? window.authUI.getCurrentUserData() : null;
-
     if (currentUserData && currentUserData.bookeep && currentUserData.bookeep.books) {
-        books = currentUserData.bookeep.books;
-        books = books.map(b => ({
+        books = currentUserData.bookeep.books.map(b => ({
             rating: 0,
             author: '',
             ...b
         }));
     } else {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            books = JSON.parse(stored).map(b => ({
-                rating: 0,
-                author: '',
-                ...b
-            }));
-        }
+        books = [];
     }
 }
 
 async function saveBooks() {
     const currentUser = window.authUI ? window.authUI.getCurrentUser() : null;
-
     if (currentUser) {
         await window.firebaseAuth.updateBookeepData(currentUser.uid, books);
-
         const userData = window.authUI.getCurrentUserData();
         if (userData) {
+            if (!userData.bookeep) userData.bookeep = {};
             userData.bookeep.books = books;
         }
-    } else {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
     }
 }
 
@@ -728,6 +713,28 @@ async function importData(event) {
     reader.readAsText(file);
     event.target.value = '';
 }
+
+// Called by authUI.js when a user signs in — loads that user's books from Firebase.
+window.initBookeep = function(userData) {
+    if (userData && userData.bookeep && userData.bookeep.books) {
+        books = userData.bookeep.books.map(b => ({
+            rating: 0,
+            author: '',
+            ...b
+        }));
+    } else {
+        books = [];
+    }
+    renderBooks();
+    updateStats();
+};
+
+// Called by authUI.js when a user signs out — clears the book list.
+window.clearBookeep = function() {
+    books = [];
+    renderBooks();
+    updateStats();
+};
 
 window.addEventListener('load', () => {
     renderStarRating('newBookRating', 0, null, false);

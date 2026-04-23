@@ -5,15 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>BookCenter</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Nunito:wght@400;600;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="BookCenterStylesheet.css">
     <link rel="stylesheet" href="authStylesheet.css">
-    
+    <link rel="stylesheet" href="mobileStylesheet.css">
+
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
+
+    <nav class="mobile-nav">
+        <a href="./BookCenter.html" class="active"><span class="mnav-icon">🏠</span>Home</a>
+        <a href="./Bookeep.html"><span class="mnav-icon">📚</span>Bookeep</a>
+        <a href="./BookHelp.html"><span class="mnav-icon">📖</span>Help</a>
+        <a href="./BookStats.html"><span class="mnav-icon">📊</span>Stats</a>
+        <a href="./BookNotes.html"><span class="mnav-icon">📝</span>Notes</a>
+    </nav>
+
     <header>
         <nav class="navbar" style="background-color: #224499;">
             <div class="container-fluid d-flex justify-content-between align-items-center">
@@ -21,57 +31,157 @@
                     <img src="./images/bookeeplogo.png" alt="Bookeep Logo" width="42" height="52" class="d-inline-block">
                     <h1 class="mb-0 ms-2">ookCenter</h1>
                 </a>
-                <div id="navbarButtons">
-                </div>
+                <div id="navbarButtons"></div>
             </div>
         </nav>
     </header>
 
     <div class="nav-box">
         <div class="nav-box-title">Navigation</div>
-        <a href="./Bookeep.html" class="nav-box-item">Bookeep</a>
-        <a href="./BookHelp.html" class="nav-box-item">BookHelp</a>
+        <a href="./Bookeep.html"   class="nav-box-item">Bookeep</a>
+        <a href="./BookHelp.html"  class="nav-box-item">BookHelp</a>
         <a href="./BookStats.html" class="nav-box-item">BookStats</a>
         <a href="./BookNotes.html" class="nav-box-item">BookNotes</a>
     </div>
-    
+
     <div class="main-content">
-        <article class="container mt-4">
-            <h1 style="text-align: center; margin-bottom: 0; padding-top: 5px"><b>Welcome to BookCenter</b></h1>
-            <div style="text-align: center; font-size: 0.9rem; color: gray; margin-bottom: 10px;">
-                Your central hub for all things Bookeep.
+
+        <!-- ══ HERO ══════════════════════════════════════════════════════════ -->
+        <section class="bc-hero">
+            <div class="bc-hero-eyebrow">Your reading life, organised</div>
+            <h1 class="bc-hero-title">Welcome to<br><span class="bc-hero-accent">BookCenter</span></h1>
+            <p class="bc-hero-sub">Track every page. Measure your speed. Capture every thought.<br>Your complete reading companion — all in one place.</p>
+            <div class="bc-hero-actions" id="bcHeroActions">
+                <!-- Populated by BookCenterBackend.js -->
             </div>
-            <hr style="margin-top: 0;">
-            
-            <h3 style="margin-top: 20px; color: #224499"><b>What is Book Center?</b></h3>
-            <p>BookCenter is your center for all things Books. We invite you to delve into each sub-section of our site, which range from tracking your books, to seeing analytics 
-            on your reading habits, to getting help with your reading goals, and even taking notes on your favorite books. Explore the various tools and features we offer to 
-            enhance your reading experience!
-            </p>
-            
-            <hr>
-            
-            <h3 style="margin-top: 20px; color: #224499"><b>Getting Started</b></h3>
-            <h4>1. <a href="./Bookeep.html">Bookeep</a></h4>
-            <p>Bookeep was the central idea for our webpage. A place where you can track your reading completion, sorted and organized, and note of your word counts.
-                Also, if you want to challenge yourself and your friends, you can set up a reading challenge for Words Read or Books Read! Bookeep will do all the calculations for you.
-            </p>
-            
-            <h4>2. <a href="./BookHelp.html">BookHelp</a></h4>
-            <p>BookHelp is a section of our website that provides helpful tools and resources to enhance your reading experience. It includes features like a word-per-minute calculator, 
-                customizable timer for reading time, comprehension tests, goal settings for your reading speed or books read, and personalized book recommendations based on your completed reading reported on Bookeep.
-            </p>
-            
-            <h4>3. <a href="./BookStats.html">BookStats</a></h4>
-            <p>BookStats is a section of our website that provides analytics and statistics on your reading habits. It shows you how many books you've read, how many words you've read, goals 
-                completed, and other useful metrics to help you track your progress all presented in neat visualizations in the form of charts.
-            </p>
-            
-            <h4>4. <a href="./BookNotes.html">BookNotes</a></h4>
-            <p>BookNotes is a section of our website where you can take notes on your favorite books. It allows you to keep track of your thoughts, key quotes, and important 
-                details about each book you read in an organized manner.
-            </p>
-        </article>
+            <div class="bc-hero-rule"></div>
+            <div class="bc-hero-stats">
+                <div class="bc-hero-stat"><span class="bc-hs-num">4</span><span class="bc-hs-label">Tools</span></div>
+                <div class="bc-hero-stat-div"></div>
+                <div class="bc-hero-stat"><span class="bc-hs-num">∞</span><span class="bc-hs-label">Books</span></div>
+                <div class="bc-hero-stat-div"></div>
+                <div class="bc-hero-stat"><span class="bc-hs-num">100%</span><span class="bc-hs-label">Free</span></div>
+            </div>
+        </section>
+
+        <!-- ══ LOGGED-IN DASHBOARD (hidden until auth resolves) ══════════════ -->
+        <section class="bc-dashboard" id="bcDashboard" style="display:none;">
+            <div class="bc-section-label">Your Dashboard</div>
+            <div class="bc-dashboard-grid" id="bcDashboardGrid">
+                <!-- Populated by BookCenterBackend.js -->
+            </div>
+            <div class="bc-dashboard-links">
+                <a href="./Bookeep.html"   class="bc-dash-link">Open Bookeep →</a>
+                <a href="./BookHelp.html"  class="bc-dash-link">Open BookHelp →</a>
+                <a href="./BookStats.html" class="bc-dash-link">Open BookStats →</a>
+                <a href="./BookNotes.html" class="bc-dash-link">Open BookNotes →</a>
+            </div>
+        </section>
+
+        <!-- ══ FEATURE CARDS ══════════════════════════════════════════════════ -->
+        <section class="bc-features">
+            <div class="bc-section-label">What's Inside</div>
+            <div class="bc-feature-grid">
+
+                <a href="./Bookeep.html" class="bc-feat-card">
+                    <div class="bc-feat-icon">📚</div>
+                    <div class="bc-feat-body">
+                        <div class="bc-feat-title">Bookeep</div>
+                        <div class="bc-feat-desc">Log every book you finish — title, author, word count, rating, and date. Watch your library and reading stats grow.</div>
+                        <div class="bc-feat-tag">Book tracker · Word counts · Ratings · Wrapped</div>
+                    </div>
+                    <div class="bc-feat-arrow">→</div>
+                </a>
+
+                <a href="./BookHelp.html" class="bc-feat-card">
+                    <div class="bc-feat-icon">📖</div>
+                    <div class="bc-feat-body">
+                        <div class="bc-feat-title">BookHelp</div>
+                        <div class="bc-feat-desc">Test your reading speed, challenge your comprehension, set personal goals, and discover your next great read.</div>
+                        <div class="bc-feat-tag">WPM test · Comprehension · Goals · Recommendations</div>
+                    </div>
+                    <div class="bc-feat-arrow">→</div>
+                </a>
+
+                <a href="./BookStats.html" class="bc-feat-card">
+                    <div class="bc-feat-icon">📊</div>
+                    <div class="bc-feat-body">
+                        <div class="bc-feat-title">BookStats</div>
+                        <div class="bc-feat-desc">Beautiful charts breaking down your reading habits — by month, year, genre, and more. Know exactly how far you've come.</div>
+                        <div class="bc-feat-tag">Charts · Trends · Comprehension history · Timer logs</div>
+                    </div>
+                    <div class="bc-feat-arrow">→</div>
+                </a>
+
+                <a href="./BookNotes.html" class="bc-feat-card">
+                    <div class="bc-feat-icon">📝</div>
+                    <div class="bc-feat-body">
+                        <div class="bc-feat-title">BookNotes</div>
+                        <div class="bc-feat-desc">Sticky-note style collections for every book. Capture quotes, thoughts, and page references in a visual, organised board.</div>
+                        <div class="bc-feat-tag">Collections · Sticky notes · Page refs · Colours</div>
+                    </div>
+                    <div class="bc-feat-arrow">→</div>
+                </a>
+
+            </div>
+        </section>
+
+        <!-- ══ PULL QUOTE ═════════════════════════════════════════════════════ -->
+        <section class="bc-pullquote">
+            <div class="bc-pq-rule"></div>
+            <blockquote class="bc-pq-text">"A reader lives a thousand lives before he dies.<br>The man who never reads lives only one."</blockquote>
+            <div class="bc-pq-attr">— George R.R. Martin</div>
+            <div class="bc-pq-rule"></div>
+        </section>
+
+        <!-- ══ HOW IT WORKS ═══════════════════════════════════════════════════ -->
+        <section class="bc-howitworks">
+            <div class="bc-section-label">How It Works</div>
+            <div class="bc-steps">
+                <div class="bc-step">
+                    <div class="bc-step-num">01</div>
+                    <div class="bc-step-body">
+                        <div class="bc-step-title">Create your account</div>
+                        <div class="bc-step-desc">Sign up in seconds. Your data is stored securely and tied to your account — available on any device.</div>
+                    </div>
+                </div>
+                <div class="bc-step-connector"></div>
+                <div class="bc-step">
+                    <div class="bc-step-num">02</div>
+                    <div class="bc-step-body">
+                        <div class="bc-step-title">Log your books in Bookeep</div>
+                        <div class="bc-step-desc">Search for any book or enter manually. Record word counts, finish dates, and star ratings.</div>
+                    </div>
+                </div>
+                <div class="bc-step-connector"></div>
+                <div class="bc-step">
+                    <div class="bc-step-num">03</div>
+                    <div class="bc-step-body">
+                        <div class="bc-step-title">Use BookHelp's tools</div>
+                        <div class="bc-step-desc">Measure your WPM, test comprehension, get personalised recommendations, and set speed or score goals.</div>
+                    </div>
+                </div>
+                <div class="bc-step-connector"></div>
+                <div class="bc-step">
+                    <div class="bc-step-num">04</div>
+                    <div class="bc-step-body">
+                        <div class="bc-step-title">Watch your stats grow</div>
+                        <div class="bc-step-desc">BookStats and BookNotes round out the picture — charts, trends, and a visual notes board all in one place.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══ LOCKED TEASER (guests only) ═══════════════════════════════════ -->
+        <section class="bc-locked-teaser" id="bcLockedTeaser" style="display:none;">
+            <div class="bc-lt-inner">
+                <div class="bc-lt-lock">🔒</div>
+                <div class="bc-lt-title">Your personal reading dashboard</div>
+                <div class="bc-lt-desc">Sign in to see your book count, total words read, reading speed, and recent activity — right here on the home page.</div>
+                <button class="bc-lt-btn" onclick="window.authUI.openAuthModal()">Sign In or Create Account</button>
+            </div>
+        </section>
+
     </div>
 
     <footer class="bg-dark text-white text-center py-3 mt-5">

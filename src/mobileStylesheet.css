@@ -1,0 +1,310 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   mobileStylesheet.css — Shared responsive overrides for all BookCenter pages
+   Add to every HTML page:  <link rel="stylesheet" href="mobileStylesheet.css">
+   (place it AFTER all other stylesheets so these rules take precedence)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. BOTTOM NAV BAR (replaces the fixed side nav on mobile) ───────────── */
+/*
+   On ≤992px the .nav-box is already hidden by each page's stylesheet.
+   We inject a bottom tab bar instead.
+*/
+
+.mobile-nav {
+    display: none; /* hidden on desktop */
+}
+
+@media (max-width: 992px) {
+
+    /* Show the bottom bar */
+    .mobile-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 1100;
+        background: #224499;
+        border-top: 2px solid #1a3377;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+        height: 58px;
+    }
+
+    .mobile-nav a {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.7);
+        text-decoration: none;
+        font-size: 0.62rem;
+        font-family: Garamond, serif;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        gap: 3px;
+        padding: 6px 2px;
+        transition: color 0.15s, background 0.15s;
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .mobile-nav a:last-child {
+        border-right: none;
+    }
+
+    .mobile-nav a:hover,
+    .mobile-nav a.active {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.12);
+    }
+
+    .mobile-nav a .mnav-icon {
+        font-size: 1.25rem;
+        line-height: 1;
+    }
+
+    /* Add bottom padding to main content so it doesn't hide behind the bar */
+    .main-content {
+        padding-bottom: 68px !important;
+    }
+
+    footer {
+        margin-bottom: 58px;
+    }
+}
+
+
+/* ── 2. MAIN CONTENT — remove side margin on mobile ─────────────────────── */
+
+@media (max-width: 992px) {
+    .main-content {
+        margin-left: 0 !important;
+        padding: 10px !important;
+    }
+}
+
+
+/* ── 3. NAVBAR — shrink logo text on small screens ──────────────────────── */
+
+@media (max-width: 480px) {
+    .navbar-brand h1 {
+        font-size: 1.25rem;
+    }
+
+    .navbar-brand img {
+        width: 32px !important;
+        height: 40px !important;
+    }
+}
+
+
+/* ── 4. BOOKHELP — feature nav tabs ─────────────────────────────────────── */
+/*
+   5 buttons across the top collapse into a 2-column + 1 centred grid on
+   mobile rather than overflowing or becoming tiny.
+*/
+
+@media (max-width: 768px) {
+    .feature-nav {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border-bottom: none;
+        gap: 6px;
+        margin-bottom: 16px;
+    }
+
+    .feature-btn {
+        border: 2px solid #224499;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        padding: 10px 6px;
+        border-right: 2px solid #224499 !important;
+    }
+
+    /* 5th button (Goal Center) spans full width */
+    .feature-btn:nth-child(5) {
+        grid-column: 1 / -1;
+    }
+
+    .feature-btn.active,
+    .feature-btn:disabled {
+        background-color: #224499;
+        color: white;
+    }
+}
+
+
+/* ── 5. BOOKHELP — goal center two-column layout ────────────────────────── */
+/* Already handled by the inline style in BookHelp.html, but kept here
+   in case the inline block is ever moved to the external sheet. */
+
+@media (max-width: 768px) {
+    .goal-row {
+        grid-template-columns: 1fr !important;
+    }
+
+    .goal-ai-mode-btns {
+        gap: 6px;
+    }
+
+    .goal-mode-btn {
+        font-size: 0.8rem;
+        padding: 7px 10px;
+    }
+}
+
+
+/* ── 6. BOOKEEP — book list actions & stats grid ────────────────────────── */
+
+@media (max-width: 576px) {
+    /* Stack edit/delete buttons below book info on tiny screens */
+    .book-item > div {
+        flex-direction: column !important;
+        gap: 10px;
+    }
+
+    .book-actions {
+        justify-content: flex-end;
+        width: 100%;
+    }
+
+    /* Full-width stat boxes on single column */
+    .stats-section .row > div {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+
+    /* Search result items wrap cleanly */
+    .search-result-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .search-result-item .btn {
+        align-self: flex-end;
+    }
+}
+
+
+/* ── 7. BOOKNOTES — sticky cards grid ───────────────────────────────────── */
+
+@media (max-width: 576px) {
+    .bn-grid {
+        justify-content: center;
+    }
+
+    .bn-sticky-card,
+    .bn-note-card {
+        width: calc(50vw - 24px);
+        min-width: 140px;
+    }
+
+    /* Note creation overlay */
+    .bn-note-preview-wrap {
+        padding: 20px 16px;
+        gap: 18px;
+    }
+
+    .bn-sticky-preview {
+        width: 100%;
+        min-height: 130px;
+    }
+}
+
+
+/* ── 8. BOOKSTATS — chart pair side-by-side → stacked ───────────────────── */
+/* Already handled in BookStats.html inline styles, mirrored here */
+
+@media (max-width: 768px) {
+    .chart-pair {
+        grid-template-columns: 1fr !important;
+    }
+
+    .summary-row {
+        gap: 6px;
+    }
+
+    .stat-badge {
+        min-width: 70px;
+        padding: 5px 10px;
+    }
+}
+
+
+/* ── 9. BOOKEEP — wrapped modal ─────────────────────────────────────────── */
+
+@media (max-width: 576px) {
+    #wrappedModal .modal-dialog {
+        max-width: 98vw !important;
+        margin: 6px auto;
+    }
+
+    .wrapped-year {
+        font-size: 26px;
+    }
+
+    .wrapped-title {
+        font-size: 20px;
+        margin-bottom: 24px;
+    }
+
+    .wrapped-stat-value {
+        font-size: 24px;
+    }
+}
+
+
+/* ── 10. AUTH MODAL ──────────────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+    .auth-modal {
+        width: 96%;
+    }
+
+    .auth-modal-body {
+        padding: 18px;
+    }
+
+    .auth-modal-title {
+        font-size: 22px;
+    }
+}
+
+
+/* ── 11. USER OPTIONS MODAL ──────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+    .user-options-content {
+        width: 96%;
+    }
+}
+
+
+/* ── 12. GENERAL FORM INPUTS — no zoom on iOS ────────────────────────────── */
+/*
+    iOS Safari zooms in when a focused input has font-size < 16px.
+    Setting font-size: 16px on all inputs prevents this.
+*/
+
+@media (max-width: 768px) {
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="date"],
+    textarea,
+    select {
+        font-size: 16px !important;
+    }
+}
+
+
+/* ── 13. BOOKEEP NAVBAR — Wrapped button shrinks on mobile ───────────────── */
+
+@media (max-width: 480px) {
+    #navbarButtons .btn-warning {
+        font-size: 0.75rem;
+        padding: 5px 10px;
+    }
+}
