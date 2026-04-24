@@ -1,11 +1,7 @@
-// ─── BookNotesBackend.js ──────────────────────────────────────────────────────
-// Data model:
-//   collections: [{ id, title, color, createdAt, notes: [{ id, title, color, pageNumber, text, createdAt, updatedAt }] }]
-
 // ─── State ───────────────────────────────────────────────────────────────────
 
-let bnCollections = [];       // full collections array
-let bnActiveColIdx = null;    // index into bnCollections for "open" collection, null = grid view
+let bnCollections = [];
+let bnActiveColIdx = null;
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 
@@ -40,7 +36,6 @@ window.initBookNotes = function(userData) {
     bnRenderGrid();
 };
 
-// Also handle guest / localStorage path
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         if (!window.authUI?.getCurrentUser()) {
@@ -225,7 +220,7 @@ async function bnCreateCollection() {
     bnRenderGrid();
 }
 
-// ─── ADD NOTE OVERLAY (styled as a live sticky note) ─────────────────────────
+// ─── ADD NOTE OVERLAY ─────────────────────────-────────────────────────────────────────
 
 function bnOpenAddNote() {
     bnRemoveOverlay();

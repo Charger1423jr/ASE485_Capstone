@@ -1,5 +1,3 @@
-// ─── BookStatsBackend.js ──────────────────────────────────────────────────────
-
 const STATS_BLUE      = '#224499';
 const STATS_BLUE_LITE = 'rgba(34,68,153,0.15)';
 const STATS_PALETTE   = ['#224499','#3a6ae0','#5599ff','#7aabff','#a0c4ff','#1a7a4a','#2db36f','#5dcaa5','#f5c518','#fd7e14','#dc3545','#6f42c1','#20c997','#e83e8c'];
@@ -214,9 +212,9 @@ function renderComprehension(compHistory) {
         type:'bar',
         data:{ labels:compHistory.map((_,i)=>'Test '+(i+1)), datasets:[
             { label:'Correct (0–4)', data:scores, yAxisID:'yScore', borderRadius:4,
-              backgroundColor:scores.map(s=>s>=4?'#224499':s>=3?'#3a6ae0':s>=2?'#f5c518':'#dc3545') },
+                backgroundColor:scores.map(s=>s>=4?'#224499':s>=3?'#3a6ae0':s>=2?'#f5c518':'#dc3545') },
             { label:'Score %', data:compHistory.map(r=>r.percentage), type:'line', yAxisID:'yPct',
-              borderColor:'#5dcaa5', backgroundColor:'transparent', tension:.3, pointRadius:4 }
+                borderColor:'#5dcaa5', backgroundColor:'transparent', tension:.3, pointRadius:4 }
         ]},
         options:{ responsive:true, plugins:{legend:{position:'top'}},
             scales:{
@@ -260,7 +258,6 @@ function renderNotesStats(collections) {
     const yr1 = new Date(now.getFullYear()-1,0,1);
     const mo1 = new Date(now.getFullYear(),now.getMonth()-1,1);
 
-    // Flatten all notes from all collections
     const allNotes = collections.flatMap(c => c.notes || []);
     const totalNotes = allNotes.length;
     const inYr = allNotes.filter(n => new Date(n.createdAt) >= yr1).length;
@@ -273,7 +270,6 @@ function renderNotesStats(collections) {
         badge('Collections', fmtNum(collections.length), '#6f42c1')
     );
 
-    // Notes per month (last 13 months)
     const months = last13Months();
     makeChart('notesMonthChart', {
         type:'bar',
@@ -283,7 +279,6 @@ function renderNotesStats(collections) {
         options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{stepSize:1}}} }
     });
 
-    // Notes per collection (bar)
     const colLabels = collections.map(c=>c.title.length>18?c.title.slice(0,16)+'…':c.title);
     const colCounts = collections.map(c=>(c.notes||[]).length);
     makeChart('notesColChart', {
@@ -347,10 +342,8 @@ function loadStatsData(userData) {
     renderNotesStats(collections);
 }
 
-// Entry point called by authUI
 window.initBookStats = function(userData) { loadStatsData(userData); };
 
-// Guest fallback
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         if (!window.authUI?.getCurrentUser()) loadStatsData(null);

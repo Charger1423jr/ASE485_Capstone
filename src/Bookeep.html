@@ -12,15 +12,24 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check-compat.js"></script>
     <link rel="stylesheet" href="mobileStylesheet.css">
 </head>
 <body>
     <nav class="mobile-nav">
         <a href="./BookCenter.html" ><span class="mnav-icon">🏠</span>Home</a>
-        <a href="./Bookeep.html" class="active"><span class="mnav-icon">📚</span>Bookeep</a>
-        <a href="./BookHelp.html" ><span class="mnav-icon">📖</span>Help</a>
-        <a href="./BookStats.html" ><span class="mnav-icon">📊</span>Stats</a>
-        <a href="./BookNotes.html" ><span class="mnav-icon">📝</span>Notes</a>
+        <a href="./Bookeep.html" onclick="return requireAuth(event)">
+    <span class="mnav-icon">📚</span>Bookeep
+</a>
+        <a href="./BookHelp.html" onclick="return requireAuth(event)">
+            <span class="mnav-icon">📖</span>Help
+        </a>
+        <a href="./BookStats.html" onclick="return requireAuth(event)">
+            <span class="mnav-icon">📊</span>Stats
+        </a>
+        <a href="./BookNotes.html" onclick="return requireAuth(event)">
+            <span class="mnav-icon">📝</span>Notes
+        </a>
     </nav>
 
     <header>
@@ -28,7 +37,6 @@
             <div class="container-fluid d-flex justify-content-between align-items-center">
                 <a class="navbar-brand d-flex align-items-end" href="./BookCenter.html" style="color: white; text-decoration: none;">
                     <img src="./images/bookeeplogo.png" alt="Bookeep Logo" width="42" height="52" class="d-inline-block">
-                    <h1 class="mb-0 ms-2">ookCenter</h1>
                 </a>
                 <div class="d-flex gap-2 align-items-center" id="navbarButtons">
                     <button class="btn btn-warning" onclick="showWrapped()">
@@ -42,9 +50,9 @@
     <div class="nav-box">
         <div class="nav-box-title">Navigation</div>
         <a href="./Bookeep.html" class="nav-box-item disabled">Bookeep</a>
-        <a href="./BookHelp.html" class="nav-box-item">BookHelp</a>
-        <a href="./BookStats.html" class="nav-box-item">BookStats</a>
-        <a href="./BookNotes.html" class="nav-box-item">BookNotes</a>
+        <a href="./BookHelp.html" class="nav-box-item" onclick="return requireAuth(event)">BookHelp</a>
+        <a href="./BookStats.html" class="nav-box-item" onclick="return requireAuth(event)">BookStats</a>
+        <a href="./BookNotes.html" class="nav-box-item" onclick="return requireAuth(event)">BookNotes</a>
     </div>
 
     <div class="main-content">
@@ -211,8 +219,9 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="./firebaseAuth.js"></script>
-    <script src="./authUI.js"></script>
-    <script src="./BookeepBackend.js"></script>
+    <script src="firebaseAuth.js"></script>
+    <script src="./modals.js"></script>
+    <script src="authUI.js"></script>
+    <script src="BookeepBackend.js"></script>
 </body>
 </html>

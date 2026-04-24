@@ -1,0 +1,31 @@
+{
+  "name": "bookreader-tests",
+  "version": "1.0.0",
+  "description": "Test suite for BookReader backend modules",
+  "scripts": {
+    "test": "jest --verbose",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "rootDir": ".",
+    "roots": [
+      "<rootDir>/tests"
+    ],
+    "testMatch": [
+      "<rootDir>/tests/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "*.js",
+      "!*.test.js"
+    ],
+    "coverageReporters": [
+      "text",
+      "lcov"
+    ]
+  }
+}

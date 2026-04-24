@@ -13,63 +13,27 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check-compat.js"></script>
 
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap');
-
-        .stat-badge {
-            display: inline-flex; flex-direction: column; align-items: center;
-            border: 1.5px solid #d0ddf5; border-radius: 10px;
-            padding: 7px 16px; margin: 4px 6px 4px 0;
-            background: white; min-width: 90px;
-            box-shadow: 0 2px 6px rgba(34,68,153,.07);
-            transition: box-shadow .18s, transform .18s;
-        }
-        .stat-badge:hover { box-shadow: 0 5px 14px rgba(34,68,153,.13); transform: translateY(-1px); }
-        .stat-badge-label { font-family: 'Montserrat', sans-serif; font-size:.68rem; color:#667; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
-        .stat-badge-value { font-family: 'Playfair Display', Georgia, serif; font-size:1.3rem; font-weight:700; color:#224499; line-height:1.2; }
-        .summary-row { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; }
-
-        .stat-section {
-            background:white; border:1px solid #e0eaff; border-radius:12px;
-            padding:22px 24px 18px; margin-bottom:22px;
-            box-shadow: 0 3px 14px rgba(34,68,153,.07);
-        }
-        .stat-section h3 { font-family:'Playfair Display',Georgia,serif; color:#1a2e6b; font-size:1.2rem; font-weight:700; margin-bottom:4px; }
-        .stat-section .section-desc { font-size:.82rem; color:#889; margin-bottom:14px; }
-
-        .stat-group-label {
-            font-family: 'Playfair Display', Georgia, serif;
-            font-size:1.4rem; font-weight:700; color:#1a2e6b;
-            border-bottom:2px solid #224499; padding-bottom:8px; margin:32px 0 18px;
-            font-style: italic;
-        }
-        .chart-pair { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
-        @media(max-width:768px){ .chart-pair{grid-template-columns:1fr;} }
-
-        #statsLoading {
-            display:flex; flex-direction:column; align-items:center;
-            justify-content:center; gap:14px; padding:60px 0;
-        }
-        .stats-spinner {
-            border:5px solid #e0eaff; border-top:5px solid #224499;
-            border-radius:50%; width:50px; height:50px;
-            animation:spin .85s linear infinite;
-        }
-        @keyframes spin { to{transform:rotate(360deg);} }
-        #statsEmpty { text-align:center; padding:60px 20px; color:#889; }
-        #statsEmpty .empty-icon { font-size:3rem; margin-bottom:14px; }
-        canvas { max-height:280px; }
-    </style>
     <link rel="stylesheet" href="mobileStylesheet.css">
 </head>
 <body>
     <nav class="mobile-nav">
-        <a href="./BookCenter.html" ><span class="mnav-icon">🏠</span>Home</a>
-        <a href="./Bookeep.html" ><span class="mnav-icon">📚</span>Bookeep</a>
-        <a href="./BookHelp.html" ><span class="mnav-icon">📖</span>Help</a>
-        <a href="./BookStats.html" class="active"><span class="mnav-icon">📊</span>Stats</a>
-        <a href="./BookNotes.html" ><span class="mnav-icon">📝</span>Notes</a>
+        <a href="./BookCenter.html" onclick="return requireAuth(event)">
+            <span class="mnav-icon">🏠</span>Home
+        </a>
+        <a href="./Bookeep.html" onclick="return requireAuth(event)">
+            <span class="mnav-icon">📚</span>Bookeep
+        </a>
+        <a href="./BookHelp.html" onclick="return requireAuth(event)">
+            <span class="mnav-icon">📖</span>Help
+        </a>
+        <a href="./BookStats.html" class="active" onclick="return requireAuth(event)">
+            <span class="mnav-icon">📊</span>Stats
+        </a>
+        <a href="./BookNotes.html" onclick="return requireAuth(event)">
+            <span class="mnav-icon">📝</span>Notes
+        </a>
     </nav>
 
     <header>
@@ -77,7 +41,6 @@
             <div class="container-fluid d-flex justify-content-between align-items-center">
                 <a class="navbar-brand d-flex align-items-end" href="./BookCenter.html" style="color:white;text-decoration:none;">
                     <img src="./images/bookeeplogo.png" alt="Bookeep Logo" width="42" height="52" class="d-inline-block">
-                    <h1 class="mb-0 ms-2">ookCenter</h1>
                 </a>
                 <div id="navbarButtons"></div>
             </div>
@@ -86,10 +49,10 @@
 
     <div class="nav-box">
         <div class="nav-box-title">Navigation</div>
-        <a href="./Bookeep.html"   class="nav-box-item">Bookeep</a>
-        <a href="./BookHelp.html"  class="nav-box-item">BookHelp</a>
-        <a href="./BookStats.html" class="nav-box-item disabled">BookStats</a>
-        <a href="./BookNotes.html" class="nav-box-item">BookNotes</a>
+        <a href="./Bookeep.html"   class="nav-box-item" onclick="return requireAuth(event)">Bookeep</a>
+        <a href="./BookHelp.html"  class="nav-box-item" onclick="return requireAuth(event)">BookHelp</a>
+        <a href="./BookStats.html" class="nav-box-item disabled" onclick="return requireAuth(event)">BookStats</a>
+        <a href="./BookNotes.html" class="nav-box-item" onclick="return requireAuth(event)">BookNotes</a>
     </div>
 
     <div class="main-content">
@@ -107,7 +70,7 @@
             <div id="statsEmpty" style="display:none;">
                 <div class="empty-icon">📚</div>
                 <h4>No data yet!</h4>
-                <p>Add books in <a href="./Bookeep.html">Bookeep</a> and complete tests in <a href="./BookHelp.html">BookHelp</a> to see your stats here.</p>
+                <p>Add books in <a href="./Bookeep.html" onclick="return requireAuth(event)">Bookeep</a> and complete tests in <a href="./BookHelp.html" onclick="return requireAuth(event)">BookHelp</a> to see your stats here.</p>
             </div>
 
             <div id="statsContainer" style="display:none;">
@@ -226,8 +189,9 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="./firebaseAuth.js"></script>
-    <script src="./authUI.js"></script>
-    <script src="./BookStatsBackend.js"></script>
+    <script src="firebaseAuth.js"></script>
+    <script src="./modals.js"></script>
+    <script src="authUI.js"></script>
+    <script src="BookStatsBackend.js"></script>
 </body>
 </html>

@@ -517,7 +517,6 @@ async function saveWpmResult() {
     const currentUser = window.authUI ? window.authUI.getCurrentUser() : null;
     if (currentUser) {
         await window.firebaseAuth.updateBookHelpData(currentUser.uid, { wpmSpeed: wpm });
-        // Keep in-memory userData in sync
         const userData = window.authUI.getCurrentUserData();
         if (userData) {
             if (!userData.bookhelp) userData.bookhelp = {};
@@ -663,7 +662,6 @@ async function submitCompAnswers() {
         } else {
             compStreak = 0;
         }
-        // Persist streak back to Firebase via goals
         if (userData) {
             if (!userData.bookhelp) userData.bookhelp = {};
             if (!userData.bookhelp.goals) userData.bookhelp.goals = {};
@@ -683,11 +681,6 @@ async function submitCompAnswers() {
 
 
 // ─── GOAL CENTER AI ───────────────────────────────────────────────────────────
-
-// ─── GOAL CENTER AI (Reactive Machine Engine) ────────────────────────────────
-// No external AI — all calculations are deterministic, rule-based.
-// Pulls from: WPM history, comprehension history, Bookeep books (word count +
-// submission dates) via Firebase (in-memory userData), mirroring how BookStats reads data.
 
 let goalAiMode = 'recommended'; // 'quick' | 'recommended' | 'optimistic'
 
@@ -717,12 +710,10 @@ async function getGoalAllData() {
 }
 
 // ── Reading pace analysis (from Bookeep books) ─────────────────────────────────
-// Returns: avgDaysBetweenBooks, avgWordsPerBook, recentPaceScore (0–1, higher = faster reader)
 
 function analyseReadingPace(books) {
     if (!books || books.length === 0) return { avgDaysBetweenBooks: null, avgWordsPerBook: null, recentPaceScore: 0.5 };
 
-    // Parse and sort by date
     const dated = books
         .map(b => {
             const p = (b.dateRead || '').split('-');
@@ -736,7 +727,6 @@ function analyseReadingPace(books) {
         ? Math.round(dated.reduce((s, b) => s + b.wordCount, 0) / dated.length)
         : null;
 
-    // Gaps between consecutive submissions (days)
     const gaps = [];
     for (let i = 1; i < dated.length; i++) {
         const diff = (dated[i].date - dated[i-1].date) / (1000 * 60 * 60 * 24);
@@ -745,21 +735,16 @@ function analyseReadingPace(books) {
 
     const avgGap = gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : null;
 
-    // Recent pace: compare last 3 gaps vs earlier gaps
     let recentPaceScore = 0.5;
     if (gaps.length >= 4) {
         const recent = gaps.slice(-3).reduce((a, b) => a + b, 0) / 3;
         const older  = gaps.slice(0, -3).reduce((a, b) => a + b, 0) / (gaps.length - 3);
-        // Lower gap = reading faster. Score > 0.5 means improving pace.
         recentPaceScore = Math.min(1, Math.max(0, 0.5 + (older - recent) / (older + 1) * 0.5));
     }
 
-    // Words-per-day pace (higher = more intensive reader, likely higher WPM)
     let wordsPerDayScore = 0.5;
     if (avgWords && avgGap) {
         const wpd = avgWords / avgGap;
-        // Typical recreational reader: ~2000–4000 words/day on a book
-        // Score: 0 at ≤500 wpd, 1 at ≥8000 wpd
         wordsPerDayScore = Math.min(1, Math.max(0, (wpd - 500) / 7500));
     }
 
@@ -777,12 +762,10 @@ function analyseReadingPace(books) {
 function computeWpmGoal(wpmHistory, paceData, mode, currentGoal) {
     const vals = wpmHistory.map(r => r.wpm).filter(v => typeof v === 'number' && v > 0);
 
-    // ── Baseline: no test data ──
     if (vals.length === 0) {
-        // Use reading pace as a proxy for likely reading speed
         const base = paceData.wordsPerDayScore > 0.6 ? 280
-                   : paceData.wordsPerDayScore > 0.3 ? 220
-                   : 180;
+                    : paceData.wordsPerDayScore > 0.3 ? 220
+                    : 180;
         const bumps = { quick: 0, recommended: 20, optimistic: 60 };
         const goal  = base + bumps[mode];
         return {
@@ -798,30 +781,22 @@ function computeWpmGoal(wpmHistory, paceData, mode, currentGoal) {
     const last = vals[vals.length - 1];
     const trend = computeTrend(vals);  // positive = improving
 
-    // ── Weighted baseline: blend of avg, best, and last ──
-    // Heavier weight on recent performance
     const baseline = Math.round(avg * 0.35 + best * 0.3 + last * 0.35);
 
-    // ── Pace modifier: faster readers plateau sooner ──
-    // If reading pace is high, they're already practised — be more conservative
     const paceModifier = paceData.wordsPerDayScore > 0.65 ? 0.85
-                       : paceData.wordsPerDayScore > 0.4  ? 1.0
-                       : 1.1; // slower reader has more room to grow
+                        : paceData.wordsPerDayScore > 0.4  ? 1.0
+                        : 1.1; // slower reader has more room to grow
 
-    // ── Trend modifier: reward improving trend with a slightly higher goal ──
     const trendBonus = trend > 5 ? 10 : trend > 0 ? 5 : 0;
 
-    // ── Mode multipliers ──
-    // quick: baseline + small step; recommended: meaningful jump; optimistic: stretch
     const modeTargets = {
         quick:       Math.round((baseline + 10 + trendBonus) * paceModifier),
         recommended: Math.round((baseline + 25 + trendBonus) * paceModifier),
         optimistic:  Math.round((baseline + 55 + trendBonus) * paceModifier)
     };
 
-    // Clamp: never suggest lower than current best; never suggest > 900 WPM
     const raw = Math.max(best + 5, modeTargets[mode]);
-    const goal = Math.min(900, Math.round(raw / 5) * 5); // round to nearest 5
+    const goal = Math.min(900, Math.round(raw / 5) * 5);
 
     return {
         goalValue: goal,
@@ -835,13 +810,12 @@ function buildWpmRationale(avg, best, last, paceData, mode, goal, currentGoal) {
     const modeLabel = { quick: 'short-term (1–2 week)', recommended: 'mid-term (1–2 month)', optimistic: 'long-term (3–6 month)' }[mode];
 
     if (avg === null) {
-        // No WPM tests yet — based on reading pace
         const paceDesc = paceData.bookCount > 0
             ? `Based on your Bookeep history (${paceData.bookCount} book${paceData.bookCount !== 1 ? 's' : ''}` +
-              (paceData.avgDaysBetweenBooks ? `, averaging one every ~${paceData.avgDaysBetweenBooks} days` : '') + `)`
+                (paceData.avgDaysBetweenBooks ? `, averaging one every ~${paceData.avgDaysBetweenBooks} days` : '') + `)`
             : 'Since you haven\'t taken a WPM test yet';
         return `${paceDesc}, a starting target of ${goal} WPM is a sensible ${modeLabel} goal. ` +
-               `Take a WPM test first to get a personalised baseline — your goal will sharpen from there.`;
+                `Take a WPM test first to get a personalised baseline — your goal will sharpen from there.`;
     }
 
     let rationale = `Your average WPM is ${avg} with a personal best of ${best}. `;
@@ -893,7 +867,6 @@ function computeCompGoal(compHistory, paceData, mode, currentGoal, compStreak) {
 
     const valid = [25, 50, 75, 100];
 
-    // ── No history ──
     if (pcts.length === 0) {
         const base = mode === 'quick' ? 50 : mode === 'recommended' ? 75 : 75;
         const goal = valid.includes(base) ? base : 75;
@@ -910,37 +883,31 @@ function computeCompGoal(compHistory, paceData, mode, currentGoal, compStreak) {
     const last = pcts[pcts.length - 1];
     const trend = computeTrend(pcts);
 
-    // ── Core logic: snap to the appropriate tier ──
-    // Base: weighted blend of avg + best + trend
     const weighted = avg * 0.5 + best * 0.3 + last * 0.2;
 
-    let tierIndex; // 0=25, 1=50, 2=75, 3=100
+    let tierIndex;
 
     if (mode === 'quick') {
-        // Maintain or achieve the next tier above current average
-        tierIndex = weighted < 35 ? 1       // avg <35 → target 50
-                  : weighted < 60 ? 2       // avg <60 → target 75
-                  : weighted < 80 ? 2       // avg <80 → maintain 75
-                  : 3;                      // avg ≥80 → target 100
+        tierIndex = weighted < 35 ? 1
+                    : weighted < 60 ? 2
+                    : weighted < 80 ? 2
+                    : 3;
 
-        // If streak is strong, keep them at where they already are
         if (compStreak >= 3 && tierIndex > 0) tierIndex = Math.min(3, tierIndex);
 
     } else if (mode === 'recommended') {
         tierIndex = weighted < 40 ? 1
-                  : weighted < 65 ? 2
-                  : weighted < 82 ? 3
-                  : 3;
-        if (trend > 5) tierIndex = Math.min(3, tierIndex + 0); // trend already baked in
+                    : weighted < 65 ? 2
+                    : weighted < 82 ? 3
+                    : 3;
+        if (trend > 5) tierIndex = Math.min(3, tierIndex + 0);
 
-    } else { // optimistic
-        // Stretch — push one tier above what's realistic for quick
+    } else {
         tierIndex = weighted < 50 ? 2
-                  : weighted < 70 ? 3
-                  : 3;
+                    : weighted < 70 ? 3
+                    : 3;
     }
 
-    // Bonus: if the user is already consistently hitting a tier, push up
     const consistentAt = pcts.filter(p => p >= 75).length / pcts.length;
     if (consistentAt > 0.7 && mode !== 'quick') tierIndex = Math.min(3, tierIndex + 1);
 
@@ -959,7 +926,7 @@ function buildCompRationale(avg, best, last, paceData, mode, goal, currentGoal, 
 
     if (avg === null) {
         return `You haven't taken a comprehension test yet — a ${goal}% target is a solid ${modeLabel} starting point. ` +
-               `Take your first test to see how you score, then your goal will be tuned to your actual performance.`;
+                `Take your first test to see how you score, then your goal will be tuned to your actual performance.`;
     }
 
     let r = `Your average comprehension score is ${Math.round(avg)}%, with a best of ${best}%. `;
@@ -979,8 +946,8 @@ function buildCompRationale(avg, best, last, paceData, mode, goal, currentGoal, 
     r += `A ${modeLabel} target of ${goal}% `;
     r += gap > 0 ? `pushes you ${gap} points above your average — ` : `maintains your current strong level — `;
     r += mode === 'quick' ? 'within reach with focused effort this week.'
-       : mode === 'recommended' ? 'a motivating but realistic challenge.'
-       : 'an ambitious stretch worth pursuing consistently.';
+        : mode === 'recommended' ? 'a motivating but realistic challenge.'
+        : 'an ambitious stretch worth pursuing consistently.';
 
     return r;
 }
@@ -988,7 +955,7 @@ function buildCompRationale(avg, best, last, paceData, mode, goal, currentGoal, 
 function compTip(goal, mode) {
     const tips = {
         25:  'Focus on understanding the main idea of each paragraph before moving on — comprehension starts with slowing down.',
-        50:  'After each page, pause and mentally summarise what happened or what the key argument was before continuing.',
+        50:  'After each page, pause and mentally summarize what happened or what the key argument was before continuing.',
         75:  'Before taking the test, re-read the last paragraph of the passage — it often contains the conclusion that ties details together.',
         100: 'Treat every comprehension test like an open-book exam: note names, dates, and claims as you read so you can recall them precisely.'
     };
@@ -1013,7 +980,7 @@ function computeTrend(vals) {
     const yMean = recent.reduce((a, b) => a + b, 0) / n;
     let num = 0, den = 0;
     recent.forEach((y, i) => { num += (i - xMean) * (y - yMean); den += (i - xMean) ** 2; });
-    return den === 0 ? 0 : num / den; // slope per test
+    return den === 0 ? 0 : num / den;
 }
 
 // ── UI: loading / error / render ──────────────────────────────────────────────
@@ -1074,7 +1041,6 @@ async function generateGoalSuggestion(type) {
 
     setGoalPanelLoading(panelId);
 
-    // Small async gap so the loading state paints before the (synchronous) calculation
     await new Promise(r => setTimeout(r, 120));
 
     try {
@@ -1129,8 +1095,6 @@ function escapeGoalHtml(str) {
 
 // ─── GOAL CENTER ─────────────────────────────────────────────────────────────
 
-// ── Helpers: read/write goals through Firebase ────────────────────────────────
-
 async function saveGoalsToFirebase() {
     const currentUser = window.authUI ? window.authUI.getCurrentUser() : null;
     if (!currentUser) return;
@@ -1138,7 +1102,6 @@ async function saveGoalsToFirebase() {
     const userData = window.authUI.getCurrentUserData();
     const goals = userData?.bookhelp?.goals || {};
 
-    // Sync in-memory userData
     if (userData) {
         if (!userData.bookhelp) userData.bookhelp = {};
         userData.bookhelp.goals = goals;
@@ -1154,7 +1117,6 @@ function loadGoalsFromUserData(userData) {
 
 function clearGoalUI() {
     compStreak = 0;
-    // Also wipe the in-memory goals so displays show empty
     const userData = window.authUI?.getCurrentUserData();
     if (userData?.bookhelp?.goals) {
         userData.bookhelp.goals = { wpmGoal: null, compGoal: null, compStreak: 0 };
@@ -1263,13 +1225,11 @@ function updateCompStreakDisplay() {
 document.addEventListener('DOMContentLoaded', () => {
     loadWpmPrompt();
     loadCompPrompt();
-    // Goal displays start empty — populated by window.initBookHelp once auth resolves.
     updateWpmGoalDisplay();
     updateCompGoalDisplay();
     updateCompStreakDisplay();
 });
 
-// Called by authUI.js -> loadBookHelpData() when a user signs in.
 window.initBookHelp = function(userData) {
     loadGoalsFromUserData(userData);
 
@@ -1277,7 +1237,6 @@ window.initBookHelp = function(userData) {
     updateCompGoalDisplay();
     updateCompStreakDisplay();
 
-    // Populate input fields from userData
     const goals = userData?.bookhelp?.goals || {};
     const wpmInput = document.getElementById('wpmGoalInput');
     if (wpmInput) wpmInput.value = goals.wpmGoal != null ? goals.wpmGoal : '';
@@ -1323,8 +1282,6 @@ function escapeHtml(str) {
 
     async function getUserBooks() {
     try {
-        // Always read from in-memory userData first (already loaded on sign-in),
-        // fall back to a fresh Firebase fetch only if needed.
         const cachedBooks = window.authUI?.getCurrentUserData()?.bookeep?.books;
         if (cachedBooks) return cachedBooks;
 
@@ -1579,7 +1536,6 @@ function diversify(scored) {
         .map((book, i) => ({ book, origIdx: i }))
         .filter(({ origIdx }) => !hiddenAuthor.has('au_' + origIdx));
 
-    // genericPool indices must stay stable — use the index within the full genericPool array
     const visibleGeneric = genericPool
         .map((book, i) => ({ book, origIdx: i }))
         .filter(({ origIdx }) => !hiddenGeneric.has(origIdx));
@@ -1620,7 +1576,6 @@ visibleGeneric.slice(0, 4).forEach(({ book, origIdx }) => {
                 ? '<div class="curveball-label">Author</div>'
                 : '';
 
-        // Store key type so hideRec can reconstruct the correct type (number vs string)
         const poolKeyAttr = String(poolKey).replace(/"/g, '&quot;');
         const poolKeyType = typeof poolKey;
 
@@ -1731,7 +1686,6 @@ async function initRecommendations() {
     showRecLoading('Fetching candidates…');
     const candidates = await fetchCandidates(userProfile, userBooks);   
     showRecLoading('Ranking…');
-    // Keep author picks separate so diversify() can't drop them
     const authorPicks = candidates.filter(b => b.isAuthorPick);
     const nonAuthorCandidates = candidates.filter(b => !b.isAuthorPick);
     const scoredGeneric = scoreCandidates(nonAuthorCandidates, userProfile);

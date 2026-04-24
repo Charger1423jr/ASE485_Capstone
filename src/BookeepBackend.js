@@ -13,13 +13,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('yearLabel2').textContent = currentYear;
 
     updatePointsLabel();
-    // Books are loaded by authUI via window.initBookeep() once Firebase resolves.
-    // Render empty state immediately so the page isn't blank.
     renderBooks();
     updateStats();
 });
 
-// Points
+// Points ──────────────────────────────────────────────────────────
 
 function setPointsMode(mode) {
     pointsMode = mode;
@@ -33,7 +31,7 @@ function updatePointsLabel() {
     if (el) el.textContent = label;
 }
 
-// OpenLibrary Search
+// OpenLibrary Search ──────────────────────────────────────────────────────────
 
 let searchResultsCache = [];
 
@@ -119,7 +117,7 @@ function toggleSearchMode() {
     }
 }
 
-// Rating 
+// Rating ──────────────────────────────────────────────────────────
 
 function renderStarRating(containerId, currentRating, bookId, isEdit) {
     const container = document.getElementById(containerId);
@@ -253,7 +251,7 @@ function updateDateDisplay() {
     }
 }
 
-// Add Book 
+// Add Book ──────────────────────────────────────────────────────────
 
 async function addBook() {
     const title = document.getElementById('bookTitle').value.trim();
@@ -303,7 +301,7 @@ async function addBook() {
     showSnackbar('Book added successfully!');
 }
 
-// Render Books 
+// Render Books ──────────────────────────────────────────────────────────
 
 function renderBooks() {
     const searchTerm = document.getElementById('searchBox').value.toLowerCase();
@@ -493,7 +491,7 @@ function cancelEdit() {
     renderBooks();
 }
 
-// Delete
+// Delete ──────────────────────────────────────────────────────────
 
 function showDeleteModal(bookId) {
     deleteBookId = bookId;
@@ -527,7 +525,7 @@ function filterBooks() {
     renderBooks();
 }
 
-// Stats 
+// Stats ──────────────────────────────────────────────────────────
 
 function updateStats() {
     const currentYear = new Date().getFullYear();
@@ -552,7 +550,7 @@ function updateStats() {
     document.getElementById('points').textContent = pointsValue;
 }
 
-// Wrapped
+// Wrapped ──────────────────────────────────────────────────────────
 
 function showWrapped() {
     const currentYear = new Date().getFullYear();
@@ -629,7 +627,7 @@ function showSnackbar(message) {
     toast.show();
 }
 
-// Export / Import 
+// ─── Export / Import ──────────────────────────────────────────────────────────
 
 function exportData() {
     if (books.length === 0) {
@@ -714,7 +712,6 @@ async function importData(event) {
     event.target.value = '';
 }
 
-// Called by authUI.js when a user signs in — loads that user's books from Firebase.
 window.initBookeep = function(userData) {
     if (userData && userData.bookeep && userData.bookeep.books) {
         books = userData.bookeep.books.map(b => ({
@@ -729,7 +726,6 @@ window.initBookeep = function(userData) {
     updateStats();
 };
 
-// Called by authUI.js when a user signs out — clears the book list.
 window.clearBookeep = function() {
     books = [];
     renderBooks();

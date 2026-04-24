@@ -1,24 +1,54 @@
 const firebaseConfig = {
-    apiKey: "APIKEY",
-    authDomain: "AUTHDOMAIN",
-    projectId: "ID",
-    storageBucket: "BUCKET",
-    messagingSenderId: "SENDERID",
-    appId: "APPID",
-    measurementId: "ID"
+    apiKey: "AIzaSyBXyJ0NwwUOLKcySjtidGBTT0ovDAu4kFg",
+    authDomain: "book-center-official.firebaseapp.com",
+    projectId: "book-center-official",
+    storageBucket: "book-center-official.firebasestorage.app",
+    messagingSenderId: "643017020575",
+    appId: "1:643017020575:web:05c660b81624202e5c3eaa",
+    measurementId: "G-ZQKRMEHFY2"
 };
 
-let app, auth, db;
+const app = firebase.initializeApp(firebaseConfig);
 
-function initializeFirebase() {
-    try {
-        app = firebase.initializeApp(firebaseConfig);
-        auth = firebase.auth();
-        db = firebase.firestore();
-        console.log("Firebase initialized successfully");
-    } catch (error) {
-        console.error("Firebase initialization error:", error);
-    }
+// ── App Check (reCAPTCHA v3) ──────────────────────────────────────────────
+// Replace YOUR_RECAPTCHA_SITE_KEY with the key from Firebase Console →
+// App Check → Apps → your web app → reCAPTCHA v3 site key.
+firebase.appCheck().activate('6LePOMgsAAAAAPmQAYzIA7JMDbevwsiNC0ABMrsh', true);
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+    .catch(err => console.error('Persistence error:', err));
+
+// ── Session constants ──────────────────────────────────────────────────
+const SESSION_LOGIN_KEY = 'bc_login_time';    // timestamp of last sign-in
+const SESSION_MAX_MS    = 24 * 60 * 60 * 1000; // 24-hour absolute limit
+const SESSION_IDLE_MS   = 60 * 60 * 1000;    // 1-hour idle timeout
+const SESSION_IDLE_KEY  = 'bc_last_active';  // timestamp of last user activity
+
+// ── Session age helpers ───────────────────────────────────────────────
+
+function recordLoginTime() {
+    const now = Date.now();
+    sessionStorage.setItem(SESSION_LOGIN_KEY, now);
+    sessionStorage.setItem(SESSION_IDLE_KEY, now);
+}
+
+function touchActivity() {
+    sessionStorage.setItem(SESSION_IDLE_KEY, Date.now());
+}
+
+// Returns true if the session has exceeded the 24-hour absolute limit
+// OR the user has been idle for more than 1 hour.
+function isSessionExpired() {
+    const loginTime  = parseInt(sessionStorage.getItem(SESSION_LOGIN_KEY) || '0');
+    const lastActive = parseInt(sessionStorage.getItem(SESSION_IDLE_KEY)  || '0');
+    if (!loginTime) return false; // no timestamp means fresh load, let Firebase decide
+    const now = Date.now();
+    if (now - loginTime  > SESSION_MAX_MS)  return true;
+    if (now - lastActive > SESSION_IDLE_MS) return true;
+    return false;
 }
 
 function createUserData(uid, email, username) {
@@ -74,32 +104,79 @@ function createUserData(uid, email, username) {
     };
 }
 
+function validateEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function validateUsername(username) {
+    return /^[a-zA-Z0-9_]{3,20}$/.test(username);
+}
+
+function mapAuthError(error) {
+    if (error.code === 'auth/email-already-in-use') {
+        return "That email is already in use.";
+    }
+    if (error.code === 'auth/weak-password') {
+        return "Password should be at least 6 characters.";
+    }
+    if (error.code === 'auth/invalid-email') {
+        return "Invalid email address.";
+    }
+    return "Something went wrong. Please try again.";
+}
+
 async function signUp(email, username, password) {
+
+    // 0. Validate inputs
+    if (!validateEmail(email)) {
+        return { success: false, error: "Please enter a valid email address." };
+    }
+
+    if (!validateUsername(username)) {
+        return { success: false, error: "Username must be 3–20 characters and contain only letters, numbers, or underscores." };
+    }
+
+    const usernameKey = username.toLowerCase().trim();
+    const usernameRef = db.collection('usernames').doc(usernameKey);
+
     try {
+        // ── 1. CHECK username FIRST (no writes yet)
+        const snap = await usernameRef.get();
+        if (snap.exists) {
+            return { success: false, error: "That username is already taken." };
+        }
+
+        // ── 2. Create auth user
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         const user = userCredential.user;
-        
-        await user.updateProfile({
-            displayName: username
+
+        await user.updateProfile({ displayName: usernameKey });
+
+        // ── 3. Commit both writes ONCE
+        const batch = db.batch();
+
+        batch.set(usernameRef, {
+            uid: user.uid,
+            status: 'active',
+            createdAt: new Date().toISOString()
         });
-        
-        const userData = createUserData(user.uid, email, username);
-        await db.collection('users').doc(user.uid).set(userData);
-        
-        return { success: true, user: user };
+
+        batch.set(
+            db.collection('users').doc(user.uid),
+            createUserData(user.uid, email, usernameKey)
+        );
+
+        await batch.commit();
+
+        return { success: true, user };
+
     } catch (error) {
         console.error("Sign up error:", error);
-        
-        if (auth.currentUser) {
-            try {
-                await auth.currentUser.delete();
-                console.log("Rolled back user creation due to error");
-            } catch (deleteError) {
-                console.error("Failed to rollback user creation:", deleteError);
-            }
-        }
-        
-        return { success: false, error: error.message };
+
+        return {
+            success: false,
+            error: mapAuthError(error)
+        };
     }
 }
 
@@ -108,16 +185,21 @@ async function signIn(emailOrUsername, password) {
         let email = emailOrUsername;
         
         if (!emailOrUsername.includes('@')) {
-            const querySnapshot = await db.collection('users')
-                .where('username', '==', emailOrUsername)
-                .limit(1)
+            // O(1) direct-read via the `usernames` collection (doc ID = lowercase username).
+            const usernameSnap = await db.collection('usernames')
+                .doc(emailOrUsername.toLowerCase())
                 .get();
-            
-            if (querySnapshot.empty) {
-                return { success: false, error: "Username not found" };
+
+            if (!usernameSnap.exists) {
+                return { success: false, error: 'Username not found' };
             }
-            
-            email = querySnapshot.docs[0].data().email;
+
+            const uid = usernameSnap.data().uid;
+            const userDocForEmail = await db.collection('users').doc(uid).get();
+            if (!userDocForEmail.exists) {
+                return { success: false, error: 'User data not found. Please contact support.' };
+            }
+            email = userDocForEmail.data().email;
         }
         
         const userCredential = await auth.signInWithEmailAndPassword(email, password);
@@ -307,8 +389,34 @@ function getCurrentUser() {
     return auth.currentUser;
 }
 
+async function deleteAccount(uid, username) {
+    try {
+        const user = auth.currentUser;
+        if (!user) return { success: false, error: 'No user is signed in.' };
+
+        // Delete Firestore documents in a batch
+        const batch = db.batch();
+        batch.delete(db.collection('users').doc(uid));
+        if (username) {
+            batch.delete(db.collection('usernames').doc(username.toLowerCase().trim()));
+        }
+        await batch.commit();
+
+        // Delete the Firebase Auth account last
+        await user.delete();
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting account:', error);
+        // auth/requires-recent-login means the user needs to re-authenticate first
+        if (error.code === 'auth/requires-recent-login') {
+            return { success: false, error: 'For security, please log out and log back in before deleting your account.' };
+        }
+        return { success: false, error: error.message };
+    }
+}
+
 window.firebaseAuth = {
-    initializeFirebase,
     signUp,
     signIn,
     signOut,
@@ -320,8 +428,11 @@ window.firebaseAuth = {
     updateBookStatsData,
     updateBookNotesData,
     updateUserPreferences,
+    deleteAccount,
     migrateLocalStorageToFirebase,
     onAuthStateChanged,
-    getCurrentUser
-
+    getCurrentUser,
+    recordLoginTime,
+    touchActivity,
+    isSessionExpired
 };

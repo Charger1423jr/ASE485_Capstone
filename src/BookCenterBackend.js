@@ -1,8 +1,3 @@
-// ─── BookCenterBackend.js ─────────────────────────────────────────────────────
-// Renders guest CTA vs logged-in dashboard on the BookCenter homepage.
-// Called by authUI.js via window.initBookCenter(userData) on sign-in,
-// and directly on DOMContentLoaded for the guest view.
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function bcFormatNumber(n) {
@@ -23,7 +18,6 @@ function bcStars(rating) {
 // ── Guest view ────────────────────────────────────────────────────────────────
 
 function bcShowGuest() {
-    // Hero CTA: sign-in button + explore link
     const actions = document.getElementById('bcHeroActions');
     if (actions) {
         actions.innerHTML = `
@@ -36,13 +30,11 @@ function bcShowGuest() {
         `;
     }
 
-    // Show locked teaser, hide dashboard
     const teaser = document.getElementById('bcLockedTeaser');
     const dash   = document.getElementById('bcDashboard');
     if (teaser) teaser.style.display = 'block';
     if (dash)   dash.style.display   = 'none';
 
-    // Anchor for the "Explore" button
     const features = document.querySelector('.bc-features');
     if (features) features.id = 'bc-features-anchor';
 }
@@ -53,7 +45,6 @@ function bcShowLoggedIn(userData) {
     const user     = window.authUI.getCurrentUser();
     const username = user?.displayName || user?.email?.split('@')[0] || 'Reader';
 
-    // Hero: personalised greeting, replace CTA buttons
     const actions = document.getElementById('bcHeroActions');
     if (actions) {
         actions.innerHTML = `
@@ -61,13 +52,11 @@ function bcShowLoggedIn(userData) {
         `;
     }
 
-    // Hide teaser, show dashboard
     const teaser = document.getElementById('bcLockedTeaser');
     const dash   = document.getElementById('bcDashboard');
     if (teaser) teaser.style.display = 'none';
     if (dash)   dash.style.display   = 'block';
 
-    // ── Compute dashboard stats ──
     const bh    = userData?.bookhelp  || {};
     const be    = userData?.bookeep   || {};
     const bn    = userData?.booknotes || {};
@@ -88,7 +77,6 @@ function bcShowLoggedIn(userData) {
     });
     const yearWords   = yearBooks.reduce((s, b) => s + (b.wordCount || 0), 0);
 
-    // ── Render stat cards ──
     const grid = document.getElementById('bcDashboardGrid');
     if (!grid) return;
 
@@ -135,10 +123,8 @@ function bcShowLoggedIn(userData) {
         },
     ];
 
-    // ── Recent books ──
     const recentBooks = [...books]
         .sort((a, b) => {
-            // Sort by dateRead descending (format M-D-YYYY)
             const parseDate = d => {
                 const p = (d || '').split('-');
                 return p.length === 3 ? new Date(`${p[2]}-${p[0].padStart(2,'0')}-${p[1].padStart(2,'0')}`) : new Date(0);
@@ -174,22 +160,14 @@ function bcShowLoggedIn(userData) {
 
 // ── Entry points ──────────────────────────────────────────────────────────────
 
-// Called by authUI.js when a user signs in on this page
 window.initBookCenter = function(userData) {
     bcShowLoggedIn(userData);
 };
 
-// Called by authUI.js when a user signs out (clears dashboard, shows guest view)
 window.clearBookCenter = function() {
     bcShowGuest();
 };
 
-// On first load — authUI will call initBookCenter if logged in,
-// but if not logged in, handleUserSignedOut fires and we show guest view.
-// We hook into the auth flow via a DOMContentLoaded fallback for guests.
 document.addEventListener('DOMContentLoaded', () => {
-    // Show guest view by default; initBookCenter will replace it if user is signed in.
-    // This prevents a flash of locked-teaser for logged-in users since authUI
-    // fires quickly and overwrites this.
     bcShowGuest();
 });

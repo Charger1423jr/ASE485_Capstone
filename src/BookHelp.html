@@ -12,204 +12,23 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check-compat.js"></script>
 
-    <style>
-        /* ── Goal Center AI layout ── */
-        .goal-ai-mode-bar {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-            background: #f0f5ff;
-            border: 1px solid #c8d8f8;
-            border-radius: 10px;
-            padding: 10px 16px;
-        }
-        .goal-ai-mode-label {
-            font-weight: 600;
-            color: #224499;
-            font-size: 0.9rem;
-            white-space: nowrap;
-        }
-        .goal-ai-mode-btns {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        .goal-mode-btn {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 8px 16px;
-            border: 2px solid #c8d8f8;
-            border-radius: 8px;
-            background: white;
-            color: #224499;
-            font-family: Garamond, serif;
-            font-size: 0.92rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            line-height: 1.2;
-        }
-        .goal-mode-btn:hover:not(.active) {
-            background: #e8eeff;
-            border-color: #224499;
-        }
-        .goal-mode-btn.active {
-            background: #224499;
-            color: white;
-            border-color: #224499;
-        }
-        .goal-mode-sub {
-            font-size: 0.72rem;
-            font-weight: 400;
-            opacity: 0.8;
-            font-style: italic;
-        }
-
-        /* ── Two-column goal row ── */
-        .goal-row {
-            display: grid;
-            grid-template-columns: 320px 1fr;
-            gap: 24px;
-            align-items: start;
-            margin: 16px 0;
-        }
-        @media (max-width: 768px) {
-            .goal-row { grid-template-columns: 1fr; }
-        }
-        .goal-controls { min-width: 0; }
-
-        .goal-ai-btn {
-            background: linear-gradient(135deg, #224499, #3a6ae0);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-family: Garamond, serif;
-            transition: opacity 0.2s, transform 0.15s;
-        }
-        .goal-ai-btn:hover:not(:disabled) {
-            opacity: 0.88;
-            transform: translateY(-1px);
-            color: white;
-        }
-        .goal-ai-btn:disabled {
-            opacity: 0.6;
-            cursor: default;
-        }
-
-        /* ── AI panel ── */
-        .goal-ai-panel {
-            background: #f8faff;
-            border: 1.5px solid #c8d8f8;
-            border-radius: 10px;
-            padding: 16px 18px;
-            min-height: 140px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            position: relative;
-        }
-        .goal-ai-placeholder {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: #888;
-            font-size: 0.85rem;
-            text-align: center;
-            padding: 20px;
-            flex: 1;
-        }
-
-        /* ── AI suggestion card ── */
-        .goal-suggestion-card {
-            background: white;
-            border: 1.5px solid #c8d8f8;
-            border-left: 4px solid #224499;
-            border-radius: 8px;
-            padding: 12px 14px;
-            animation: goalFadeIn 0.35s ease;
-        }
-        @keyframes goalFadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-        .goal-suggestion-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 6px;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-        .goal-suggestion-mode-badge {
-            font-size: 0.72rem;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 10px;
-            background: #224499;
-            color: white;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-        .goal-suggestion-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #224499;
-            line-height: 1.1;
-            margin-bottom: 4px;
-        }
-        .goal-suggestion-rationale {
-            font-size: 0.83rem;
-            color: #444;
-            line-height: 1.5;
-            margin-bottom: 10px;
-        }
-        .goal-suggestion-tip {
-            font-size: 0.78rem;
-            color: #224499;
-            background: #eef2ff;
-            border-radius: 6px;
-            padding: 6px 10px;
-            line-height: 1.45;
-        }
-        .goal-apply-btn {
-            margin-top: 10px;
-            font-size: 0.8rem;
-        }
-
-        /* ── Loading spinner inside panel ── */
-        .goal-ai-loading {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            flex: 1;
-            padding: 20px;
-            color: #224499;
-            font-size: 0.85rem;
-        }
-        .goal-ai-spinner {
-            border: 3px solid #e0e0e0;
-            border-top: 3px solid #224499;
-            border-radius: 50%;
-            width: 28px; height: 28px;
-            animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-    </style>
     <link rel="stylesheet" href="mobileStylesheet.css">
 </head>
 <body>
     <nav class="mobile-nav">
         <a href="./BookCenter.html" ><span class="mnav-icon">🏠</span>Home</a>
-        <a href="./Bookeep.html" ><span class="mnav-icon">📚</span>Bookeep</a>
+        <a href="./Bookeep.html" onclick="return requireAuth(event)">
+            <span class="mnav-icon">📚</span>Bookeep
+        </a>
         <a href="./BookHelp.html" class="active"><span class="mnav-icon">📖</span>Help</a>
-        <a href="./BookStats.html" ><span class="mnav-icon">📊</span>Stats</a>
-        <a href="./BookNotes.html" ><span class="mnav-icon">📝</span>Notes</a>
+        <a href="./BookStats.html" onclick="return requireAuth(event)">
+            <span class="mnav-icon">📊</span>Stats
+        </a>
+        <a href="./BookNotes.html" onclick="return requireAuth(event)">
+            <span class="mnav-icon">📝</span>Notes
+        </a>
     </nav>
 
     <header>
@@ -217,7 +36,6 @@
             <div class="container-fluid d-flex justify-content-between align-items-center">
                 <a class="navbar-brand d-flex align-items-end" href="./BookCenter.html" style="color: white; text-decoration: none;">
                     <img src="./images/bookeeplogo.png" alt="Bookeep Logo" width="42" height="52" class="d-inline-block">
-                    <h1 class="mb-0 ms-2">ookCenter</h1>
                 </a>
                 <div id="navbarButtons">
                 </div>
@@ -227,10 +45,10 @@
     
     <div class="nav-box">
         <div class="nav-box-title">Navigation</div>
-        <a href="./Bookeep.html" class="nav-box-item">Bookeep</a>
+        <a href="./Bookeep.html" class="nav-box-item" onclick="return requireAuth(event)">Bookeep</a>
         <a href="./BookHelp.html" class="nav-box-item disabled">BookHelp</a>
-        <a href="./BookStats.html" class="nav-box-item">BookStats</a>
-        <a href="./BookNotes.html" class="nav-box-item">BookNotes</a>
+        <a href="./BookStats.html" class="nav-box-item" onclick="return requireAuth(event)">BookStats</a>
+        <a href="./BookNotes.html" class="nav-box-item" onclick="return requireAuth(event)">BookNotes</a>
     </div>
     
     <div class="main-content">
@@ -505,7 +323,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="./firebaseAuth.js"></script>
+    <script src="./modals.js"></script>
     <script src="./authUI.js"></script>
-    <script src="./BookHelpBackend.js"></script>
+    <script src="BookHelpBackend.js"></script>
 </body>
 </html>
