@@ -363,17 +363,15 @@ function starsDisplay(rating) {
 
 function renderBookView(book) {
     return `
-        <div class="d-flex justify-content-between align-items-center">
-            <div class="book-info">
-                <div class="book-title">${book.title}</div>
-                ${book.author ? `<div class="book-author">by ${book.author}</div>` : ''}
-                <div class="book-details">Words: ${formatNumber(book.wordCount)} · Date: ${book.dateRead}</div>
-                <div style="margin-top:3px;">${starsDisplay(book.rating || 0)}</div>
-            </div>
-            <div class="book-actions">
-                <button class="btn btn-sm btn-warning" onclick="startEdit('${book.id}')">Edit</button>
-                <button class="btn btn-sm btn-danger" onclick="showDeleteModal('${book.id}')">Delete</button>
-            </div>
+        <div class="book-info">
+            <div class="book-title">${book.title}</div>
+            ${book.author ? `<div class="book-author">by ${book.author}</div>` : ''}
+            <div class="book-details">Words: ${formatNumber(book.wordCount)} · Date: ${book.dateRead}</div>
+            <div style="margin-top:3px;">${starsDisplay(book.rating || 0)}</div>
+        </div>
+        <div class="book-actions">
+            <button class="btn btn-sm btn-warning" onclick="startEdit('${book.id}')">Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="showDeleteModal('${book.id}')">Delete</button>
         </div>
     `;
 }

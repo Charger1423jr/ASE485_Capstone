@@ -200,6 +200,22 @@ article > h2 {
 .btn-primary:hover { background-color: #1a3377 !important; border-color: #1a3377 !important; }
 
 @media (max-width: 768px) {
-    .book-item { flex-direction: column; gap: 10px; }
-    .book-actions { justify-content: flex-end; width: 100%; }
+    .book-actions { 
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+        align-items: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .book-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .book-actions { 
+        justify-content: flex-end; 
+        width: 100%; 
+    }
 }
