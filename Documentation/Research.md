@@ -4,7 +4,7 @@
 **Course:** ASE 485 — Software Engineering Capstone  
 **Institution:** Northern Kentucky University  
 **Date:** April 2026  
-**Deployment:** https://book-center-official.web.app
+**Deployment:** https://bookcenter-b90ae.web.app
 
 ---
 
