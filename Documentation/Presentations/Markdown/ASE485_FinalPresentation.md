@@ -107,4 +107,36 @@ Link also on GitHub
 
 ---
 
+## Learning with AI
+### Topic 1: AI Book Recommendations
+
+#### How it Works:
+- Taking in info from user and OpenLibraryAPI
+- Compares books and gives them point score
+- Returns list of highest scores, displays on BookHelp
+
+#### What I Learned:
+- Reactive Machine will not always produce the same # of items each time
+- Recommendation system is a sweet-spot for AI
+- Model needed manual tweaking to keep bias down and non-English translations away
+
+---
+
+## Learning with AI
+### Topic 2: AI Goal Setting
+
+#### How it Works:
+- User selects level of goal (1 of 3)
+- Data is gathered from BookStats metrics of that user
+- Prompt is sent and used by Claude API
+- JSON Response sent back, showing personalized goal for the user
+- User chooses if the goal should be applied
+
+#### What I Learned:
+- First time setting up Claude API was challenging
+- Good prompts for API to give best response took trial+error
+- Claude API was really good at making personal goals and giving good feedback on why this goal is perfect
+
+---
+
 ## Questions?
