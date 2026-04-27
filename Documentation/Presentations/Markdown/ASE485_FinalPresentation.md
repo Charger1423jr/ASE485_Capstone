@@ -21,6 +21,7 @@ title: Final Project Presentation - BookCenter
 - Frontend: HTML, CSS, JavaScript, Bootstrap, Chart.js
 - Backend: Firebase (Firestore, Authentication, App Check, Hosting)
 - APIs: OpenLibrary, Anthropic Claude, reCAPTCHA
+- AI Tools: Claude, ChatGPT
 
 ---
 
@@ -115,10 +116,15 @@ Link also on GitHub
 - Compares books and gives them point score
 - Returns list of highest scores, displays on BookHelp
 
+---
+### Topic 1: AI Book Recommendations
 #### What I Learned:
 - Reactive Machine will not always produce the same # of items each time
 - Recommendation system is a sweet-spot for AI
 - Model needed manual tweaking to keep bias down and non-English translations away
+
+##### Topic 1 Presentation:
+https://github.com/Charger1423jr/Learning_with_AI/blob/main/Presentations/LearningFromAIBookRecommendation.pdf
 
 ---
 
@@ -132,10 +138,15 @@ Link also on GitHub
 - JSON Response sent back, showing personalized goal for the user
 - User chooses if the goal should be applied
 
+---
+### Topic 2: AI Goal Setting
 #### What I Learned:
 - First time setting up Claude API was challenging
 - Good prompts for API to give best response took trial+error
 - Claude API was really good at making personal goals and giving good feedback on why this goal is perfect
+
+##### Topic 2 Presentation:
+https://github.com/Charger1423jr/Learning_with_AI/blob/main/Presentations/LearningFromAIGoalSetting.pdf
 
 ---
 
